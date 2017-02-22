@@ -3,15 +3,42 @@
 <head>
     <meta charset="utf-8">
     
-    <title>Categories | Sunflower</title>
+    <title>浅显易懂之线程模型的演变 | Sunflower</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <meta property="og:type" content="website">
-<meta property="og:title" content="Categories">
-<meta property="og:url" content="http://www.sun4lower.cn/categories/index.html">
+    <meta name="description" content="本文旨在通过一个实际工作中例子让大家理解线程模型的演变，从而对 Netty 的模型有一个粗略的印象，面向的是想初步了解 Netty 原理的读者，而并不关心具体的执行细节和相关术语的描述。
+单线程单线程映射到我们的实际工作中就是由一个人完成所有的工作，如下图所示：
+
+A 自己独立的完成全部的Job
+多线程多线程映射到我们的工作中就是多个人共同协作完成工作，如下图所示：
+
+A、B、C 三人工作完成工作">
+<meta property="og:type" content="article">
+<meta property="og:title" content="浅显易懂之线程模型的演变">
+<meta property="og:url" content="http://www.sun4lower.cn/2017/02/22/event-threadmodel/index.html">
 <meta property="og:site_name" content="Sunflower">
-<meta property="og:updated_time" content="2017-02-20T02:47:27.000Z">
+<meta property="og:description" content="本文旨在通过一个实际工作中例子让大家理解线程模型的演变，从而对 Netty 的模型有一个粗略的印象，面向的是想初步了解 Netty 原理的读者，而并不关心具体的执行细节和相关术语的描述。
+单线程单线程映射到我们的实际工作中就是由一个人完成所有的工作，如下图所示：
+
+A 自己独立的完成全部的Job
+多线程多线程映射到我们的工作中就是多个人共同协作完成工作，如下图所示：
+
+A、B、C 三人工作完成工作">
+<meta property="og:image" content="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fczgkkhhnij30tp0abdfw.jpg">
+<meta property="og:image" content="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fczgko8yjkj30t60ad3yl.jpg">
+<meta property="og:image" content="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fczgkrlix3j30t60acdgd.jpg">
+<meta property="og:image" content="http://wx4.sinaimg.cn/mw690/006y2nc1ly1fczgkvd866j30v10n1ta6.jpg">
+<meta property="og:image" content="http://wx2.sinaimg.cn/mw690/006y2nc1ly1fczgkykdjcj30v013d41o.jpg">
+<meta property="og:updated_time" content="2017-02-22T12:39:47.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Categories">
+<meta name="twitter:title" content="浅显易懂之线程模型的演变">
+<meta name="twitter:description" content="本文旨在通过一个实际工作中例子让大家理解线程模型的演变，从而对 Netty 的模型有一个粗略的印象，面向的是想初步了解 Netty 原理的读者，而并不关心具体的执行细节和相关术语的描述。
+单线程单线程映射到我们的实际工作中就是由一个人完成所有的工作，如下图所示：
+
+A 自己独立的完成全部的Job
+多线程多线程映射到我们的工作中就是多个人共同协作完成工作，如下图所示：
+
+A、B、C 三人工作完成工作">
+<meta name="twitter:image" content="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fczgkkhhnij30tp0abdfw.jpg">
     
 
     
@@ -200,16 +227,149 @@
 </aside>
 
             
-            <section id="main"><section class="layout-wrap">
-    <div class="layout-title">
-        <span>Categories</span>
-    </div>
-    <div class="layout-wrap-inner list-categories">
+            <section id="main"><article id="post-event-threadmodel" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
         
-            <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/bigdata/">大数据</a><span class="category-list-count">2</span><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/bigdata/spark/">spark</a><span class="category-list-count">1</span><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/bigdata/spark/sparkc/">spark-core</a><span class="category-list-count">1</span></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/bigdata/event/">通信机制</a><span class="category-list-count">1</span></li></ul></li></ul>
         
+            <header class="article-header">
+                
+    
+        <h1 class="article-title" itemprop="name">
+            浅显易懂之线程模型的演变
+        </h1>
+    
+
+                
+                    <div class="article-meta">
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/2017/02/22/event-threadmodel/">
+            <time datetime="2017-02-22T09:49:24.000Z" itemprop="datePublished">2017-02-22</time>
+        </a>
     </div>
-</section></section>
+
+
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/event/">通信机制</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/netty/">Netty</a>, <a class="tag-link" href="/tags/多线程/">多线程</a>, <a class="tag-link" href="/tags/event/">通信机制</a>
+    </div>
+
+                    </div>
+                
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+            
+            <p>本文旨在通过一个实际工作中例子让大家理解线程模型的演变，从而对 Netty 的模型有一个粗略的印象，面向的是想初步了解 Netty 原理的读者，而并不关心具体的执行细节和相关术语的描述。</p>
+<h2 id="单线程"><a href="#单线程" class="headerlink" title="单线程"></a>单线程</h2><p>单线程映射到我们的实际工作中就是由一个人完成所有的工作，如下图所示：</p>
+<p><img src="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fczgkkhhnij30tp0abdfw.jpg" alt=""></p>
+<p>A 自己独立的完成全部的Job</p>
+<h2 id="多线程"><a href="#多线程" class="headerlink" title="多线程"></a>多线程</h2><p>多线程映射到我们的工作中就是多个人共同协作完成工作，如下图所示：</p>
+<p><img src="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fczgko8yjkj30t60ad3yl.jpg" alt=""></p>
+<p>A、B、C 三人工作完成工作，每个人会分到具体的工作去执行，较之单线程，执行效率提高。</p>
+<h2 id="线程池"><a href="#线程池" class="headerlink" title="线程池"></a>线程池</h2><p>多个 Worker（A、B、C等）已经准备好去完成即将到来的Job，当Job 1过来的时候，会从线程池中选择一个线程也就是Worker（A）来完成这项任务，完成之后A仍然要回到线程池中，等待下一个工作的到来。</p>
+<p><img src="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fczgkrlix3j30t60acdgd.jpg" alt=""></p>
+<h2 id="Reactor单线程模型"><a href="#Reactor单线程模型" class="headerlink" title="Reactor单线程模型"></a>Reactor单线程模型</h2><p>Reactor 的单线程模型映射到实际工作中如下图所示：</p>
+<p><img src="http://wx4.sinaimg.cn/mw690/006y2nc1ly1fczgkvd866j30v10n1ta6.jpg" alt=""></p>
+<p>我们有一个Boss来接收具体的Job，然后Boss将具体接收到的Job分配给已经准备好的Worker，交给具体的Worker来完成最终的Job，但是如果Job非常多的时候，Boss的压力就会越来越大，所以Boss成为了性能的瓶颈，而下面提到的Reactor多线程模型就是为了解决这个问题而产生的。</p>
+<h2 id="Reactor多线程模型"><a href="#Reactor多线程模型" class="headerlink" title="Reactor多线程模型"></a>Reactor多线程模型</h2><p>为了完善Reactor单线程模型，Reactor多线程模型进行了优化：</p>
+<p><img src="http://wx2.sinaimg.cn/mw690/006y2nc1ly1fczgkykdjcj30v013d41o.jpg" alt=""></p>
+<p>和Reacotr单线程模型相比，Reactor多线程模型增加了一个从Manager pool选择Manager的过程，即通过Manager来帮助Boss分配具体的Job给Worker</p>
+<p>Netty的具体实现就类似于Reactor的多线程模型，而Spark现在Rpc的底层就是通过Netty来实现的。</p>
+<p>至此本文的目的已经达到，如果想要更加详细的了解Netty的具体实现细节和NIO相关的知识可以参考如下文章：</p>
+<p><a href="http://www.infoq.com/cn/articles/netty-threading-model?utm_source=infoq&amp;utm_campaign=user_page&amp;utm_medium=link" target="_blank" rel="external">Netty系列之Netty线程模型</a></p>
+<p><a href="http://ifeve.com/category/netty/" target="_blank" rel="external">并发编程网有关Netty的部分</a></p>
+<p><a href="http://netty.io" target="_blank" rel="external">Netty官方网站</a></p>
+<p><a href="http://tutorials.jenkov.com/java-nio/index.html" target="_blank" rel="external">Java NIO Tutorial</a></p>
+<font color="#808080"><em>站内博客未经特殊说明皆为原创，欢迎转载，转载请注明出处、作者，谢谢！</em></font>
+        
+        </div>
+        <footer class="article-footer">
+            <div class="share-container">
+
+
+    <div class="bdsharebuttonbox">
+    <a href="#" class="bds_more" data-cmd="more">分享到：</a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间">QQ空间</a>
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博">新浪微博</a>
+    <a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博">腾讯微博</a>
+    <a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网">人人网</a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信">微信</a>
+</div>
+<script>
+window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMiniList":false,"bdPic":"","bdStyle":"0","bdSize":"16"},"share":{"bdSize":16}};with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+<style>
+    .bdshare_popup_box {
+        border-radius: 4px;
+        border: #e1e1e1 solid 1px;
+    }
+    .bdshare-button-style0-16 a,
+    .bdshare-button-style0-16 .bds_more {
+        padding-left: 20px;
+        margin: 6px 10px 6px 0;
+    }
+    .bdshare_dialog_list a,
+    .bdshare_popup_list a,
+    .bdshare_popup_bottom a {
+        font-family: 'Microsoft Yahei';
+    }
+    .bdshare_popup_top {
+        display: none;
+    }
+    .bdshare_popup_bottom {
+        height: auto;
+        padding: 5px;
+    }
+</style>
+
+
+</div>
+
+            
+    
+        <a href="http://www.sun4lower.cn/2017/02/22/event-threadmodel/#comments" class="article-comment-link">Comments</a>
+    
+
+        </footer>
+    </div>
+    
+        
+<nav id="article-nav">
+    
+    
+        <a href="/2017/02/19/hello-world/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Older</strong>
+            <div class="article-nav-title">Hello World</div>
+        </a>
+    
+</nav>
+
+
+    
+</article>
+
+
+    
+    <section id="comments">
+    
+        
+    <div id="uyan_frame"></div>
+
+    
+    </section>
+
+</section>
             
                 <aside id="sidebar">
    
