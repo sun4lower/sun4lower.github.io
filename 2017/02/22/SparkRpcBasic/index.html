@@ -3,15 +3,37 @@
 <head>
     <meta charset="utf-8">
     
-    <title>Sunflower</title>
+    <title>Spark RPC 到底是个什么鬼？ | Sunflower</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <meta property="og:type" content="website">
-<meta property="og:title" content="Sunflower">
-<meta property="og:url" content="http://www.sun4lower.cn/404.html">
+    <meta name="description" content="本文会为大家详细介绍Spark中的RPC通信机制，详细阐述“Spark RPC到底是个什么鬼？”，闲话少许，让我们来进入Spark RPC的世界！
+##Spark RPC三剑客
+Spark RPC中最为重要的三个抽象（“三剑客”）为：RpcEnv、RpcEndpoint、RpcEndpointRef，这样做的好处有：
+
+对上层的API来说，屏蔽了底层的具体实现，使用方便
+可以通过不同的实现来完成指">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark RPC 到底是个什么鬼？">
+<meta property="og:url" content="http://www.sun4lower.cn/2017/02/22/SparkRpcBasic/index.html">
 <meta property="og:site_name" content="Sunflower">
-<meta property="og:updated_time" content="2017-02-23T08:10:32.000Z">
+<meta property="og:description" content="本文会为大家详细介绍Spark中的RPC通信机制，详细阐述“Spark RPC到底是个什么鬼？”，闲话少许，让我们来进入Spark RPC的世界！
+##Spark RPC三剑客
+Spark RPC中最为重要的三个抽象（“三剑客”）为：RpcEnv、RpcEndpoint、RpcEndpointRef，这样做的好处有：
+
+对上层的API来说，屏蔽了底层的具体实现，使用方便
+可以通过不同的实现来完成指">
+<meta property="og:image" content="http://wx2.sinaimg.cn/mw690/006y2nc1ly1fd1k9vickfj31gc1p4wob.jpg">
+<meta property="og:image" content="http://wx4.sinaimg.cn/mw690/006y2nc1ly1fd1iphxqe1j30dw0bqglj.jpg">
+<meta property="og:image" content="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fd1jh9wem9j30dw08wglh.jpg">
+<meta property="og:updated_time" content="2017-02-24T06:53:21.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Sunflower">
+<meta name="twitter:title" content="Spark RPC 到底是个什么鬼？">
+<meta name="twitter:description" content="本文会为大家详细介绍Spark中的RPC通信机制，详细阐述“Spark RPC到底是个什么鬼？”，闲话少许，让我们来进入Spark RPC的世界！
+##Spark RPC三剑客
+Spark RPC中最为重要的三个抽象（“三剑客”）为：RpcEnv、RpcEndpoint、RpcEndpointRef，这样做的好处有：
+
+对上层的API来说，屏蔽了底层的具体实现，使用方便
+可以通过不同的实现来完成指">
+<meta name="twitter:image" content="http://wx2.sinaimg.cn/mw690/006y2nc1ly1fd1k9vickfj31gc1p4wob.jpg">
     
 
     
@@ -211,15 +233,97 @@ var _hmt = _hmt || [];
 </aside>
 
             
-            <section id="main"><article id="page-undefined" class="article article-type-page" itemscope itemprop="blogPost">
+            <section id="main"><article id="post-SparkRpcBasic" class="article article-type-post" itemscope itemprop="blogPost">
     <div class="article-inner">
         
+        
+            <header class="article-header">
+                
+    
+        <h1 class="article-title" itemprop="name">
+            Spark RPC 到底是个什么鬼？
+        </h1>
+    
+
+                
+                    <div class="article-meta">
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/2017/02/22/SparkRpcBasic/">
+            <time datetime="2017-02-22T09:49:24.000Z" itemprop="datePublished">2017-02-22</time>
+        </a>
+    </div>
+
+
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/">spark</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/sparkc/">spark-core</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/netty/">Netty</a>, <a class="tag-link" href="/tags/prc/">RPC</a>, <a class="tag-link" href="/tags/spark/">spark</a>, <a class="tag-link" href="/tags/sparkc/">spark-core</a>, <a class="tag-link" href="/tags/bigdata/">大数据</a>, <a class="tag-link" href="/tags/event/">通信机制</a>
+    </div>
+
+                    </div>
+                
+            </header>
         
         
         <div class="article-entry" itemprop="articleBody">
         
             
-            <script type="text/javascript" src="http://www.qq.com/404/search_children.js" charset="utf-8" homepageurl="http://www.sun4lower.cn" homepagename="回到Sunflower"></script>
+            <p>本文会为大家详细介绍Spark中的RPC通信机制，详细阐述“Spark RPC到底是个什么鬼？”，闲话少许，让我们来进入Spark RPC的世界！</p>
+<p>##Spark RPC三剑客</p>
+<p>Spark RPC中最为重要的三个抽象（“三剑客”）为：RpcEnv、RpcEndpoint、RpcEndpointRef，这样做的好处有：</p>
+<ul>
+<li>对上层的API来说，屏蔽了底层的具体实现，使用方便</li>
+<li>可以通过不同的实现来完成指定的功能，方便扩展</li>
+<li>促进了底层实现层的良性竞争，Spark 1.6.3中默认使用了Netty作为底层的实现，但Akka的依赖依然存在；而Spark 2.1.0中的底层实现只有Netty，这样用户可以方便的使用不同版本的Akka或者将来某种更好的底层实现</li>
+</ul>
+<p>下面我们就结合Netty和“三剑客”来具体分析他们是如何来协同工作的。</p>
+<p>##Send a message locally</p>
+<p>我们通过Spark源码中的一个Test（<a href="https://github.com/apache/spark/blob/master/core/src/test/scala/org/apache/spark/rpc/RpcEnvSuite.scala" target="_blank" rel="external">RpcEnvSuite.scala</a>）来分析一下发送本地消息的具体流程，源码如下（对源码做了一些修改）：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">test(<span class="string">"send a message locally"</span>) &#123;</div><div class="line">  <span class="meta">@volatile</span> <span class="keyword">var</span> message: <span class="type">String</span> = <span class="literal">null</span></div><div class="line">  <span class="keyword">val</span> rpcEndpointRef = env.setupEndpoint(<span class="string">"send-locally"</span>, <span class="keyword">new</span> <span class="type">RpcEndpoint</span> &#123;</div><div class="line">    <span class="keyword">override</span> <span class="keyword">val</span> rpcEnv = env</div><div class="line"></div><div class="line">    <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">receive</span> </span>= &#123;</div><div class="line">      <span class="comment">//case msg: String =&gt; message = msg</span></div><div class="line">      <span class="keyword">case</span> msg: <span class="type">String</span> =&gt; println(message)  <span class="comment">//我们直接将接收到的消息打印出来</span></div><div class="line">    &#125;</div><div class="line">  &#125;)</div><div class="line">  rpcEndpointRef.send(<span class="string">"hello"</span>)</div><div class="line">  <span class="comment">//下面是原来的代码</span></div><div class="line">  <span class="comment">//eventually(timeout(5 seconds), interval(10 millis)) &#123;</span></div><div class="line">  <span class="comment">//  assert("hello" === message)</span></div><div class="line">  <span class="comment">//&#125;</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>为了方便理解，先把流程图贴出来，然后详细进行阐述：</p>
+<p><img src="http://wx2.sinaimg.cn/mw690/006y2nc1ly1fd1k9vickfj31gc1p4wob.jpg" alt=""></p>
+<p>下面我们来详细阐述具体的上例的具体过程：</p>
+<p>首先是RpcEndpoint创建并注册的流程：（图中的蓝色线条部分）</p>
+<ul>
+<li>1、创建RpcEndpoint，并初始化rpcEnv的引用（RpcEnv已经创建好，底层实际上是实例化了一个NettyRpcEnv，而NettyRpcEnv是通过工厂方法NettyRpcEnvFactory创建的）</li>
+<li>2、实例化RpcEndpoint之后需要向RpcEnv注册该RpcEndpoint，底层实现是向NettyRpcEnv进行注册，而实际上是通过调用Dispatcher的registerRpcEndpoint方法向Dispatcher进行注册</li>
+<li>3、具体的注册就是向endpoints、endpointRefs、receivers中插入记录：而receivers中插入的信息会被Dispatcher中的线程池中的线程执行：会将记录take出来然后调用Inbox的process方法通过模式匹配的方法进行处理，注册的时候通过匹配到OnStart类型的message，去执行RpcEndpoint的onStart方法（例如Master、Worker注册时，就要执行各自的onStart方法），本例中未做任何操作</li>
+<li>4、注册完成后返回RpcEndpointRef，我们通过RpcEndpointRef就可以向其代表的RpcEndpoint发送消息</li>
+</ul>
+<p>下面就是通过RpcEndpointRef向其代表的RpcEndpoint发送消息的具体流程：（图中的红色线条部分）</p>
+<ul>
+<li><p>1、2、调用RpcEndpointRef的send方法，底层实现是调用Netty的NettyRpcEndpointRef的send方法，而实际上又是调用的NettyRpcEnv的send方法，发送的消息使用RequestMessage进行封装：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">nettyEnv.send(<span class="type">RequestMessage</span>(nettyEnv.address, <span class="keyword">this</span>, message))</div></pre></td></tr></table></figure>
+</li>
+<li><p>3、4、NettyRpcEnv的send方法首先会根据RpcAddress判断是本地还是远程调用，此处是同一个RpcEnv，所以是本地调用，即调用Dispatcher的postOneWayMessage方法</p>
+</li>
+<li>5、postOneWayMessage方法内部调用Dispatcher的postMessage方法</li>
+<li>6、postMessage会向具体的RpcEndpoint发送消息，首先通过endpointName从endpoints中获得注册时的EndpointData，如果不为空就执行EndpointData中Inbox的post(message)方法，向Inbox的mesages中插入一条InboxMessage，同时向receivers中插入一条记录，此处将Inbox单独画出来是为了方便大家理解</li>
+<li>7、Dispatcher中的线程池会拿出一条线程用来循环receivers中的消息，首先使用take方法获得receivers中的一条记录，然后调用Inbox的process方法来执行这条记录，而process将messages中的一条InboxMessage（第6步中插入的）拿出来进行处理，具体的处理方法就是通过模式匹配的方法，匹配到消息的类型（此处是OneWayMessage），然后来执行RpcEndpoint中对应的receive方法，在此例中我们只打印出这条消息（步骤8）</li>
+</ul>
+<p>至此，一个简单的发送本地消息的流程执行完成。</p>
+<p>什么，上面的图太复杂了？我也觉得，下面给出一张简洁的图：</p>
+<p><img src="http://wx4.sinaimg.cn/mw690/006y2nc1ly1fd1iphxqe1j30dw0bqglj.jpg" alt=""></p>
+<p>我们通过NettyRpcEndpointRef来发出一个消息，消息经过NettyRpcEnv、Dispatcher、Inbox的共同处理最终将消息发送到NettyRpcEndpoint，NettyRpcEndpoint收到消息后进行处理（一般是通过模式匹配的方式进行不同的处理）</p>
+<p>如果进一步的进行抽象就得到了我们刚开始所讲的“三剑客”：RpcEnv、RpcEndpoint、RpcEndpointRef</p>
+<p><img src="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fd1jh9wem9j30dw08wglh.jpg" alt=""></p>
+<p>RpcEndpointRef发送消息给RpcEnv，RpcEnv查询注册信息将消息路由到指定的RpcEndpoint，RpcEndpoint接收到消息后进行处理（模式匹配的方式）</p>
+<p>RpcEndpoint的声明周期：constructor -&gt; onStart -&gt; receive* -&gt; onStop</p>
+<p>其中receive*包括receive和receiveAndReply</p>
+<p>本文我们知识通过一个简单的测试程序详细的分析了Spark Rpc底层的实现，集群中的其它通信（比如Master和Woker的通信）的原理和这个测试类似，只不过具体的发送方式有所不同（包括ask、askWithRetry等），而且远程发消息的时候使用了OutBox和NIO等相关的内容，感兴趣的朋友可以对源码进行详细的阅读，本文不一一说明，目的就是通过简单的测试理解大致流程，而不再为“Spark Rpc到底是什么”而纠结，一句话总结就是：Spark Rpc就是Spark中对分布式消息通信系统的高度抽象。</p>
+<p>本文参考和拓展阅读：</p>
+<p><a href="https://github.com/apache/spark" target="_blank" rel="external">spark源码</a></p>
+<p><a href="http://netty.io" target="_blank" rel="external">Netty官方网站</a></p>
+<p><a href="http://tutorials.jenkov.com/java-nio/index.html" target="_blank" rel="external">Java NIO Tutorial</a></p>
+<font color="#808080"><em>站内博客未经特殊说明皆为原创，欢迎转载，转载请注明出处、作者，谢谢！</em></font>
         
         </div>
         <footer class="article-footer">
@@ -266,13 +370,23 @@ window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMin
 
             
     
-        <a href="http://www.sun4lower.cn//404.html#comments" class="article-comment-link">Comments</a>
+        <a href="http://www.sun4lower.cn/2017/02/22/SparkRpcBasic/#comments" class="article-comment-link">Comments</a>
     
 
         </footer>
     </div>
     
         
+<nav id="article-nav">
+    
+    
+        <a href="/2017/02/22/event-threadmodel/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Older</strong>
+            <div class="article-nav-title">浅显易懂之线程模型的演变</div>
+        </a>
+    
+</nav>
+
 
     
 </article>
