@@ -4,6 +4,50 @@
 
     
   <url>
+    <loc>http://www.sun4lower.cn/2017/02/25/sc-deploy/</loc>
+    <lastmod>2017-02-25T14:44:34.000Z</lastmod>
+    <data>
+        <display>
+        <title>Spark-Core源码精读(1)、Spark Deployment & start-all.sh on Standalone mode</title>
+        <pubTime>2017-02-25T05:58:04.000Z</pubTime>
+        
+        <tag>大数据</tag>
+         
+        <tag>RPC</tag>
+         
+        <tag>spark</tag>
+         
+        <tag>spark-core</tag>
+         
+        <tag>master</tag>
+         
+        <tag>worker</tag>
+         
+        <tag>deployment</tag>
+         
+        <tag>standalone</tag>
+         
+        <tag>yarn</tag>
+         
+        <tag>mesos</tag>
+         
+         
+           
+             
+              <breadCrumb title="大数据" url="http://www.sun4lower.cn/categories/bigdata/"/>
+          
+             
+              <breadCrumb title="spark" url="http://www.sun4lower.cn/categories/bigdata/spark/"/>
+          
+             
+              <breadCrumb title="spark-core" url="http://www.sun4lower.cn/categories/bigdata/spark/sparkc/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
     <loc>http://www.sun4lower.cn/2017/02/22/SparkRpcBasic/</loc>
     <lastmod>2017-02-24T07:49:21.000Z</lastmod>
     <data>
