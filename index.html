@@ -267,14 +267,14 @@ var _hmt = _hmt || [];
 <p>接下来我们看一下对应的Worker在接收到LaunchDriver消息后是怎么处理的：</p>
 <figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">case</span> <span class="type">LaunchDriver</span>(driverId, driverDesc) =&gt; &#123;</div><div class="line">  <span class="comment">// 1. 打日志</span></div><div class="line">  logInfo(<span class="string">s"Asked to launch driver <span class="subst">$driverId</span>"</span>)</div><div class="line">  <span class="comment">// 2. 实例化DriverRunner</span></div><div class="line">  <span class="keyword">val</span> driver = <span class="keyword">new</span> <span class="type">DriverRunner</span>(</div><div class="line">    conf,</div><div class="line">    driverId,</div><div class="line">    workDir,</div><div class="line">    sparkHome,</div><div class="line">    driverDesc.copy(command = <span class="type">Worker</span>.maybeUpdateSSLSettings(driverDesc.command, conf)),</div><div class="line">    self,</div><div class="line">    workerUri,</div><div class="line">    securityMgr)</div><div class="line">  <span class="comment">// 3. 实例化完成后向drivers中添加该driver的记录</span></div><div class="line">  drivers(driverId) = driver</div><div class="line">  <span class="comment">// 4. 启动driver</span></div><div class="line">  driver.start()</div><div class="line"></div><div class="line">  <span class="comment">// 5. 启动完成后记录资源的变化</span></div><div class="line">  coresUsed += driverDesc.cores</div><div class="line">  memoryUsed += driverDesc.mem</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>继续跟踪driver.start()：</p>
-<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// 英文注释说的很清楚：启动一个线程来运行和管理driver</span></div><div class="line"><span class="comment">/** Starts a thread to run and manage the driver. */</span></div><div class="line"><span class="keyword">private</span>[worker] <span class="function"><span class="keyword">def</span> <span class="title">start</span></span>() = &#123;</div><div class="line">	<span class="keyword">new</span> <span class="type">Thread</span>(<span class="string">"DriverRunner for "</span> + driverId) &#123;</div><div class="line">	  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">run</span></span>() &#123;</div><div class="line">	    <span class="keyword">try</span> &#123;</div><div class="line">	      <span class="comment">// 创建driver的工作目录</span></div><div class="line">	      <span class="keyword">val</span> driverDir = createWorkingDirectory()</div><div class="line">	      <span class="comment">// 下载用户的Jar文件到driver的工作目录并返回路径名称</span></div><div class="line">	      <span class="keyword">val</span> localJarFilename = downloadUserJar(driverDir)</div><div class="line">	</div><div class="line">	      <span class="function"><span class="keyword">def</span> <span class="title">substituteVariables</span></span>(argument: <span class="type">String</span>): <span class="type">String</span> = argument <span class="keyword">match</span> &#123;</div><div class="line">	        <span class="keyword">case</span> <span class="string">"&#123;&#123;WORKER_URL&#125;&#125;"</span> =&gt; workerUrl</div><div class="line">	        <span class="keyword">case</span> <span class="string">"&#123;&#123;USER_JAR&#125;&#125;"</span> =&gt; localJarFilename</div><div class="line">	        <span class="keyword">case</span> other =&gt; other</div><div class="line">	      &#125;</div><div class="line">	</div><div class="line">	      <span class="comment">// <span class="doctag">TODO:</span> If we add ability to submit multiple jars they should also be added here</span></div><div class="line">	      <span class="keyword">val</span> builder = <span class="type">CommandUtils</span>.buildProcessBuilder(driverDesc.command, securityManager,</div><div class="line">	        driverDesc.mem, sparkHome.getAbsolutePath, substituteVariables)</div><div class="line">	      <span class="comment">// 具体的启动Driver的操作，这里不再详细分析</span></div><div class="line">	      launchDriver(builder, driverDir, driverDesc.supervise)</div><div class="line">	    &#125;</div><div class="line">	    <span class="keyword">catch</span> &#123;</div><div class="line">	      <span class="keyword">case</span> e: <span class="type">Exception</span> =&gt; finalException = <span class="type">Some</span>(e)</div><div class="line">	    &#125;</div><div class="line">	</div><div class="line">	    <span class="keyword">val</span> state =</div><div class="line">	      <span class="keyword">if</span> (killed) &#123;</div><div class="line">	        <span class="type">DriverState</span>.<span class="type">KILLED</span></div><div class="line">	      &#125; <span class="keyword">else</span> <span class="keyword">if</span> (finalException.isDefined) &#123;</div><div class="line">	        <span class="type">DriverState</span>.<span class="type">ERROR</span></div><div class="line">	      &#125; <span class="keyword">else</span> &#123;</div><div class="line">	        finalExitCode <span class="keyword">match</span> &#123;</div><div class="line">	          <span class="keyword">case</span> <span class="type">Some</span>(<span class="number">0</span>) =&gt; <span class="type">DriverState</span>.<span class="type">FINISHED</span></div><div class="line">	          <span class="keyword">case</span> _ =&gt; <span class="type">DriverState</span>.<span class="type">FAILED</span></div><div class="line">	        &#125;</div><div class="line">	      &#125;</div><div class="line">	</div><div class="line">	    finalState = <span class="type">Some</span>(state)</div><div class="line">	</div><div class="line">	    worker.send(<span class="type">DriverStateChanged</span>(driverId, state, finalException))</div><div class="line">	  &#125;</div><div class="line">	&#125;.start()</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// 英文注释说的很清楚：启动一个线程来运行和管理driver</span></div><div class="line"><span class="comment">/** Starts a thread to run and manage the driver. */</span></div><div class="line"><span class="keyword">private</span>[worker] <span class="function"><span class="keyword">def</span> <span class="title">start</span></span>() = &#123;</div><div class="line">  <span class="keyword">new</span> <span class="type">Thread</span>(<span class="string">"DriverRunner for "</span> + driverId) &#123;</div><div class="line">    <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">run</span></span>() &#123;</div><div class="line">      <span class="keyword">try</span> &#123;</div><div class="line">        <span class="comment">// 创建driver的工作目录</span></div><div class="line">        <span class="keyword">val</span> driverDir = createWorkingDirectory()</div><div class="line">        <span class="comment">// 下载用户的Jar文件到driver的工作目录并返回路径名称</span></div><div class="line">        <span class="keyword">val</span> localJarFilename = downloadUserJar(driverDir)</div><div class="line">        <span class="function"><span class="keyword">def</span> <span class="title">substituteVariables</span></span>(argument: <span class="type">String</span>): <span class="type">String</span> = argument <span class="keyword">match</span> &#123;</div><div class="line">          <span class="keyword">case</span> <span class="string">"&#123;&#123;WORKER_URL&#125;&#125;"</span> =&gt; workerUrl</div><div class="line">          <span class="keyword">case</span> <span class="string">"&#123;&#123;USER_JAR&#125;&#125;"</span> =&gt; localJarFilename</div><div class="line">          <span class="keyword">case</span> other =&gt; other</div><div class="line">        &#125;</div><div class="line">        <span class="comment">// <span class="doctag">TODO:</span> If we add ability to submit multiple jars they should also be added here</span></div><div class="line">        <span class="keyword">val</span> builder = <span class="type">CommandUtils</span>.buildProcessBuilder(driverDesc.command, securityManager,</div><div class="line">          driverDesc.mem, sparkHome.getAbsolutePath, substituteVariables)</div><div class="line">        <span class="comment">// 具体的启动Driver的操作，这里不再详细分析</span></div><div class="line">        launchDriver(builder, driverDir, driverDesc.supervise)</div><div class="line">      &#125;</div><div class="line">      <span class="keyword">catch</span> &#123;</div><div class="line">        <span class="keyword">case</span> e: <span class="type">Exception</span> =&gt; finalException = <span class="type">Some</span>(e)</div><div class="line">      &#125;</div><div class="line">      <span class="keyword">val</span> state =</div><div class="line">        <span class="keyword">if</span> (killed) &#123;</div><div class="line">          <span class="type">DriverState</span>.<span class="type">KILLED</span></div><div class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (finalException.isDefined) &#123;</div><div class="line">          <span class="type">DriverState</span>.<span class="type">ERROR</span></div><div class="line">        &#125; <span class="keyword">else</span> &#123;</div><div class="line">          finalExitCode <span class="keyword">match</span> &#123;</div><div class="line">            <span class="keyword">case</span> <span class="type">Some</span>(<span class="number">0</span>) =&gt; <span class="type">DriverState</span>.<span class="type">FINISHED</span></div><div class="line">            <span class="keyword">case</span> _ =&gt; <span class="type">DriverState</span>.<span class="type">FAILED</span></div><div class="line">          &#125;</div><div class="line">        &#125;</div><div class="line">      finalState = <span class="type">Some</span>(state)</div><div class="line">      worker.send(<span class="type">DriverStateChanged</span>(driverId, state, finalException))</div><div class="line">    &#125;</div><div class="line">  &#125;.start()</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>如果启动成功最后要向worker发送一条DriverStateChanged的消息，而Worker在接收到该消息后会调用handleDriverStateChanged方法进行一系列处理，具体的处理细节就不再说明，主要的就是向Master发送一条driverStateChanged的消息，Master在接收到该消息后移除Driver的信息：</p>
 <figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">ase <span class="type">DriverStateChanged</span>(driverId, state, exception) =&gt; &#123;</div><div class="line">  state <span class="keyword">match</span> &#123;</div><div class="line">    <span class="keyword">case</span> <span class="type">DriverState</span>.<span class="type">ERROR</span> | <span class="type">DriverState</span>.<span class="type">FINISHED</span> | <span class="type">DriverState</span>.<span class="type">KILLED</span> | <span class="type">DriverState</span>.<span class="type">FAILED</span> =&gt;</div><div class="line">      removeDriver(driverId, state, exception)</div><div class="line">    <span class="keyword">case</span> _ =&gt;</div><div class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="type">Exception</span>(<span class="string">s"Received unexpected state update for driver <span class="subst">$driverId</span>: <span class="subst">$state</span>"</span>)</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>至此向Driver分配资源并启动Driver的过程结束，下面我们看一下启动Executors即执行startExecutorsOnWorkers()的流程。</p>
 <h3 id="启动Executors"><a href="#启动Executors" class="headerlink" title="启动Executors"></a>启动Executors</h3><p>startExecutorsOnWorkers():</p>
 <figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line">   * Schedule and launch executors on workers</div><div class="line">   */</div><div class="line">  <span class="keyword">private</span> <span class="function"><span class="keyword">def</span> <span class="title">startExecutorsOnWorkers</span></span>(): <span class="type">Unit</span> = &#123;</div><div class="line">  	 <span class="comment">// 采用的是先进先出的原则</span></div><div class="line">    <span class="comment">// Right now this is a very simple FIFO scheduler. We keep trying to fit in the first app</span></div><div class="line">    <span class="comment">// in the queue, then the second app, etc.</span></div><div class="line">    <span class="keyword">for</span> (app &lt;- waitingApps <span class="keyword">if</span> app.coresLeft &gt; <span class="number">0</span>) &#123;</div><div class="line">      <span class="keyword">val</span> coresPerExecutor: <span class="type">Option</span>[<span class="type">Int</span>] = app.desc.coresPerExecutor</div><div class="line">      <span class="comment">// Filter out workers that don't have enough resources to launch an executor</span></div><div class="line">      <span class="comment">// 过滤出ALIVE状态并且资源满足要求的workers，同时按照空闲cpu cores的个数倒序排列</span></div><div class="line">      <span class="keyword">val</span> usableWorkers = workers.toArray.filter(_.state == <span class="type">WorkerState</span>.<span class="type">ALIVE</span>)</div><div class="line">        .filter(worker =&gt; worker.memoryFree &gt;= app.desc.memoryPerExecutorMB &amp;&amp;</div><div class="line">          worker.coresFree &gt;= coresPerExecutor.getOrElse(<span class="number">1</span>))</div><div class="line">        .sortBy(_.coresFree).reverse</div><div class="line">        </div><div class="line">      <span class="comment">// 决定在每个worker上面分配多少个cpu cores</span></div><div class="line">      <span class="keyword">val</span> assignedCores = scheduleExecutorsOnWorkers(app, usableWorkers, spreadOutApps)</div><div class="line"></div><div class="line">      <span class="comment">// 然后开始进行分配</span></div><div class="line">      <span class="comment">// Now that we've decided how many cores to allocate on each worker, let's allocate them</span></div><div class="line">      <span class="keyword">for</span> (pos &lt;- <span class="number">0</span> until usableWorkers.length <span class="keyword">if</span> assignedCores(pos) &gt; <span class="number">0</span>) &#123;</div><div class="line">        allocateWorkerResourceToExecutors(</div><div class="line">          app, assignedCores(pos), coresPerExecutor, usableWorkers(pos))</div><div class="line">      &#125;</div><div class="line">    &#125;</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
 <p>我们首先看一下是如何决定在每个worker上分配多少个cores的，这里我们只列出scheduleExecutorsOnWorkers方法的英文注释，并进行说明，具体的操作大家可以去看源码：</p>
-<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line">   * Schedule executors to be launched on the workers.</div><div class="line">   * Returns an array containing number of cores assigned to each worker.</div><div class="line">   *</div><div class="line">   * There are two modes of launching executors. The first attempts to spread out an application's</div><div class="line">   * executors on as many workers as possible, while the second does the opposite (i.e. launch them</div><div class="line">   * on as few workers as possible). The former is usually better for data locality purposes and is</div><div class="line">   * the default.</div><div class="line">   *</div><div class="line">   * The number of cores assigned to each executor is configurable. When this is explicitly set,</div><div class="line">   * multiple executors from the same application may be launched on the same worker if the worker</div><div class="line">   * has enough cores and memory. Otherwise, each executor grabs all the cores available on the</div><div class="line">   * worker by default, in which case only one executor may be launched on each worker.</div><div class="line">   *</div><div class="line">   * It is important to allocate coresPerExecutor on each worker at a time (instead of 1 core</div><div class="line">   * at a time). Consider the following example: cluster has 4 workers with 16 cores each.</div><div class="line">   * User requests 3 executors (spark.cores.max = 48, spark.executor.cores = 16). If 1 core is</div><div class="line">   * allocated at a time, 12 cores from each worker would be assigned to each executor.</div><div class="line">   * Since 12 &lt; 16, no executors would launch [SPARK-8881].</div><div class="line">   */</div></pre></td></tr></table></figure>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"> * Schedule executors to be launched on the workers.</div><div class="line"> * Returns an array containing number of cores assigned to each worker.</div><div class="line"> *</div><div class="line"> * There are two modes of launching executors. The first attempts to spread out an application's</div><div class="line"> * executors on as many workers as possible, while the second does the opposite (i.e. launch them</div><div class="line"> * on as few workers as possible). The former is usually better for data locality purposes and is</div><div class="line"> * the default.</div><div class="line"> *</div><div class="line"> * The number of cores assigned to each executor is configurable. When this is explicitly set,</div><div class="line"> * multiple executors from the same application may be launched on the same worker if the worker</div><div class="line"> * has enough cores and memory. Otherwise, each executor grabs all the cores available on the</div><div class="line"> * worker by default, in which case only one executor may be launched on each worker.</div><div class="line"> *</div><div class="line"> * It is important to allocate coresPerExecutor on each worker at a time (instead of 1 core</div><div class="line"> * at a time). Consider the following example: cluster has 4 workers with 16 cores each.</div><div class="line"> * User requests 3 executors (spark.cores.max = 48, spark.executor.cores = 16). If 1 core is</div><div class="line"> * allocated at a time, 12 cores from each worker would be assigned to each executor.</div><div class="line"> * Since 12 &lt; 16, no executors would launch [SPARK-8881].</div><div class="line"> */</div></pre></td></tr></table></figure>
 <p>大致意思是说有两种分配模型，第一种是将executors分配到尽可能多的workers上；第二种与第一种相反。默认使用的是第一种模型，这种模型更加符合数据的本地性原则，为每个Executor分配的cores的个数是可以进行配置的（spark-submit 或者 spark-env.sh），如果设置了，多个executors可能会被分配在一个worker上（前提是该worker拥有足够的cores和memory），否则每个executor会充分利用worker上的cores，这种情况下一个executor会被分配在一个worker上。具体在集群上分配cores的时候会尽可能的满足我们的要求，如果需要的cores的个数大于workers中空闲的cores的个数，那么就先分配空闲的cores，尽可能的去满足要求。</p>
 <p>接下来就是具体为executors分配计算资源并启动executors的过程：</p>
 <figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span> <span class="function"><span class="keyword">def</span> <span class="title">allocateWorkerResourceToExecutors</span></span>(</div><div class="line">      app: <span class="type">ApplicationInfo</span>,</div><div class="line">      assignedCores: <span class="type">Int</span>,</div><div class="line">      coresPerExecutor: <span class="type">Option</span>[<span class="type">Int</span>],</div><div class="line">      worker: <span class="type">WorkerInfo</span>): <span class="type">Unit</span> = &#123;</div><div class="line">    <span class="comment">// If the number of cores per executor is specified, we divide the cores assigned</span></div><div class="line">    <span class="comment">// to this worker evenly among the executors with no remainder.</span></div><div class="line">    <span class="comment">// Otherwise, we launch a single executor that grabs all the assignedCores on this worker.</span></div><div class="line">    <span class="keyword">val</span> numExecutors = coresPerExecutor.map &#123; assignedCores / _ &#125;.getOrElse(<span class="number">1</span>)</div><div class="line">    <span class="keyword">val</span> coresToAssign = coresPerExecutor.getOrElse(assignedCores)</div><div class="line">    <span class="keyword">for</span> (i &lt;- <span class="number">1</span> to numExecutors) &#123;</div><div class="line">      <span class="comment">// 向application中添加executor的信息</span></div><div class="line">      <span class="keyword">val</span> exec = app.addExecutor(worker, coresToAssign)</div><div class="line">      <span class="comment">// 启动executors</span></div><div class="line">      launchExecutor(worker, exec)</div><div class="line">      app.state = <span class="type">ApplicationState</span>.<span class="type">RUNNING</span></div><div class="line">    &#125;</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
@@ -503,6 +503,127 @@ window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMin
 
 
 
+    <article id="post-event-threadmodel" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+    
+        <h1 itemprop="name">
+            <a class="article-title" href="/2017/02/22/event-threadmodel/">浅显易懂之线程模型的演变</a>
+        </h1>
+    
+
+                
+                    <div class="article-meta">
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/2017/02/22/event-threadmodel/">
+            <time datetime="2017-02-22T09:49:24.000Z" itemprop="datePublished">2017-02-22</time>
+        </a>
+    </div>
+
+
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/event/">通信机制</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/netty/">Netty</a>, <a class="tag-link" href="/tags/多线程/">多线程</a>, <a class="tag-link" href="/tags/event/">通信机制</a>
+    </div>
+
+                    </div>
+                
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+            
+            <p>本文旨在通过一个实际工作中例子让大家理解线程模型的演变，从而对 Netty 的模型有一个粗略的印象，面向的是想初步了解 Netty 原理的读者，而并不关心具体的执行细节和相关术语的描述。</p>
+<h2 id="单线程"><a href="#单线程" class="headerlink" title="单线程"></a>单线程</h2><p>单线程映射到我们的实际工作中就是由一个人完成所有的工作，如下图所示：</p>
+<p><img src="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fczgkkhhnij30tp0abdfw.jpg" alt=""></p>
+<p>A 自己独立的完成全部的Job</p>
+<h2 id="多线程"><a href="#多线程" class="headerlink" title="多线程"></a>多线程</h2><p>多线程映射到我们的工作中就是多个人共同协作完成工作，如下图所示：</p>
+<p><img src="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fczgko8yjkj30t60ad3yl.jpg" alt=""></p>
+<p>A、B、C 三人工作完成工作，每个人会分到具体的工作去执行，较之单线程，执行效率提高。</p>
+<h2 id="线程池"><a href="#线程池" class="headerlink" title="线程池"></a>线程池</h2><p>多个 Worker（A、B、C等）已经准备好去完成即将到来的Job，当Job 1过来的时候，会从线程池中选择一个线程也就是Worker（A）来完成这项任务，完成之后A仍然要回到线程池中，等待下一个工作的到来。</p>
+<p><img src="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fczgkrlix3j30t60acdgd.jpg" alt=""></p>
+<h2 id="Reactor单线程模型"><a href="#Reactor单线程模型" class="headerlink" title="Reactor单线程模型"></a>Reactor单线程模型</h2><p>Reactor 的单线程模型映射到实际工作中如下图所示：</p>
+<p><img src="http://wx4.sinaimg.cn/mw690/006y2nc1ly1fczgkvd866j30v10n1ta6.jpg" alt=""></p>
+<p>我们有一个Boss来接收具体的Job，然后Boss将具体接收到的Job分配给已经准备好的Worker，交给具体的Worker来完成最终的Job，但是如果Job非常多的时候，Boss的压力就会越来越大，所以Boss成为了性能的瓶颈，而下面提到的Reactor多线程模型就是为了解决这个问题而产生的。</p>
+<h2 id="Reactor多线程模型"><a href="#Reactor多线程模型" class="headerlink" title="Reactor多线程模型"></a>Reactor多线程模型</h2><p>为了完善Reactor单线程模型，Reactor多线程模型进行了优化：</p>
+<p><img src="http://wx2.sinaimg.cn/mw690/006y2nc1ly1fczkpd3gvaj30v013dwhl.jpg" alt=""></p>
+<p>和Reactor单线程模型相比，Reactor多线程模型增加了一个从Manager pool选择Manager(相当于项目经理)的过程，即通过Manager来帮助Boss分配具体的Job给Worker，例如图中选择了M1，那么M1就会去完成选择Worker的工作，虚线代表选择了M2或者M3。</p>
+<p>Netty的具体实现就类似于Reactor的多线程模型，而Spark现在Rpc的底层就是通过Netty来实现的。</p>
+<p>至此本文的目的已经达到，如果想要更加详细的了解Netty的具体实现细节和NIO相关的知识可以参考如下文章：</p>
+<p><a href="http://www.infoq.com/cn/articles/netty-threading-model?utm_source=infoq&amp;utm_campaign=user_page&amp;utm_medium=link" target="_blank" rel="external">Netty系列之Netty线程模型</a></p>
+<p><a href="http://ifeve.com/category/netty/" target="_blank" rel="external">并发编程网有关Netty的部分</a></p>
+<p><a href="http://netty.io" target="_blank" rel="external">Netty官方网站</a></p>
+<p><a href="http://tutorials.jenkov.com/java-nio/index.html" target="_blank" rel="external">Java NIO Tutorial</a></p>
+<font color="#808080"><em>站内博客未经特殊说明皆为原创，欢迎转载，转载请注明出处、作者，谢谢！</em></font>
+        
+        </div>
+        <footer class="article-footer">
+            <div class="share-container">
+
+
+    <div class="bdsharebuttonbox">
+    <a href="#" class="bds_more" data-cmd="more">分享到：</a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间">QQ空间</a>
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博">新浪微博</a>
+    <a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博">腾讯微博</a>
+    <a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网">人人网</a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信">微信</a>
+</div>
+<script>
+window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMiniList":false,"bdPic":"","bdStyle":"0","bdSize":"16"},"share":{"bdSize":16}};with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+<style>
+    .bdshare_popup_box {
+        border-radius: 4px;
+        border: #e1e1e1 solid 1px;
+    }
+    .bdshare-button-style0-16 a,
+    .bdshare-button-style0-16 .bds_more {
+        padding-left: 20px;
+        margin: 6px 10px 6px 0;
+    }
+    .bdshare_dialog_list a,
+    .bdshare_popup_list a,
+    .bdshare_popup_bottom a {
+        font-family: 'Microsoft Yahei';
+    }
+    .bdshare_popup_top {
+        display: none;
+    }
+    .bdshare_popup_bottom {
+        height: auto;
+        padding: 5px;
+    }
+</style>
+
+
+</div>
+
+            
+    
+        <a href="http://www.sun4lower.cn/2017/02/22/event-threadmodel/#comments" class="article-comment-link">Comments</a>
+    
+
+        </footer>
+    </div>
+    
+</article>
+
+
+
     <article id="post-SparkRpcBasic" class="article article-type-post" itemscope itemprop="blogPost">
     <div class="article-inner">
         
@@ -639,127 +760,6 @@ window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMin
             
     
         <a href="http://www.sun4lower.cn/2017/02/22/SparkRpcBasic/#comments" class="article-comment-link">Comments</a>
-    
-
-        </footer>
-    </div>
-    
-</article>
-
-
-
-    <article id="post-event-threadmodel" class="article article-type-post" itemscope itemprop="blogPost">
-    <div class="article-inner">
-        
-        
-            <header class="article-header">
-                
-    
-        <h1 itemprop="name">
-            <a class="article-title" href="/2017/02/22/event-threadmodel/">浅显易懂之线程模型的演变</a>
-        </h1>
-    
-
-                
-                    <div class="article-meta">
-                        
-    <div class="article-date">
-        <i class="fa fa-calendar"></i>
-        <a href="/2017/02/22/event-threadmodel/">
-            <time datetime="2017-02-22T09:49:24.000Z" itemprop="datePublished">2017-02-22</time>
-        </a>
-    </div>
-
-
-                        
-    <div class="article-category">
-    	<i class="fa fa-folder"></i>
-        <a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/event/">通信机制</a>
-    </div>
-
-                        
-    <div class="article-tag">
-        <i class="fa fa-tag"></i>
-        <a class="tag-link" href="/tags/netty/">Netty</a>, <a class="tag-link" href="/tags/多线程/">多线程</a>, <a class="tag-link" href="/tags/event/">通信机制</a>
-    </div>
-
-                    </div>
-                
-            </header>
-        
-        
-        <div class="article-entry" itemprop="articleBody">
-        
-            
-            <p>本文旨在通过一个实际工作中例子让大家理解线程模型的演变，从而对 Netty 的模型有一个粗略的印象，面向的是想初步了解 Netty 原理的读者，而并不关心具体的执行细节和相关术语的描述。</p>
-<h2 id="单线程"><a href="#单线程" class="headerlink" title="单线程"></a>单线程</h2><p>单线程映射到我们的实际工作中就是由一个人完成所有的工作，如下图所示：</p>
-<p><img src="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fczgkkhhnij30tp0abdfw.jpg" alt=""></p>
-<p>A 自己独立的完成全部的Job</p>
-<h2 id="多线程"><a href="#多线程" class="headerlink" title="多线程"></a>多线程</h2><p>多线程映射到我们的工作中就是多个人共同协作完成工作，如下图所示：</p>
-<p><img src="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fczgko8yjkj30t60ad3yl.jpg" alt=""></p>
-<p>A、B、C 三人工作完成工作，每个人会分到具体的工作去执行，较之单线程，执行效率提高。</p>
-<h2 id="线程池"><a href="#线程池" class="headerlink" title="线程池"></a>线程池</h2><p>多个 Worker（A、B、C等）已经准备好去完成即将到来的Job，当Job 1过来的时候，会从线程池中选择一个线程也就是Worker（A）来完成这项任务，完成之后A仍然要回到线程池中，等待下一个工作的到来。</p>
-<p><img src="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fczgkrlix3j30t60acdgd.jpg" alt=""></p>
-<h2 id="Reactor单线程模型"><a href="#Reactor单线程模型" class="headerlink" title="Reactor单线程模型"></a>Reactor单线程模型</h2><p>Reactor 的单线程模型映射到实际工作中如下图所示：</p>
-<p><img src="http://wx4.sinaimg.cn/mw690/006y2nc1ly1fczgkvd866j30v10n1ta6.jpg" alt=""></p>
-<p>我们有一个Boss来接收具体的Job，然后Boss将具体接收到的Job分配给已经准备好的Worker，交给具体的Worker来完成最终的Job，但是如果Job非常多的时候，Boss的压力就会越来越大，所以Boss成为了性能的瓶颈，而下面提到的Reactor多线程模型就是为了解决这个问题而产生的。</p>
-<h2 id="Reactor多线程模型"><a href="#Reactor多线程模型" class="headerlink" title="Reactor多线程模型"></a>Reactor多线程模型</h2><p>为了完善Reactor单线程模型，Reactor多线程模型进行了优化：</p>
-<p><img src="http://wx2.sinaimg.cn/mw690/006y2nc1ly1fczkpd3gvaj30v013dwhl.jpg" alt=""></p>
-<p>和Reactor单线程模型相比，Reactor多线程模型增加了一个从Manager pool选择Manager(相当于项目经理)的过程，即通过Manager来帮助Boss分配具体的Job给Worker，例如图中选择了M1，那么M1就会去完成选择Worker的工作，虚线代表选择了M2或者M3。</p>
-<p>Netty的具体实现就类似于Reactor的多线程模型，而Spark现在Rpc的底层就是通过Netty来实现的。</p>
-<p>至此本文的目的已经达到，如果想要更加详细的了解Netty的具体实现细节和NIO相关的知识可以参考如下文章：</p>
-<p><a href="http://www.infoq.com/cn/articles/netty-threading-model?utm_source=infoq&amp;utm_campaign=user_page&amp;utm_medium=link" target="_blank" rel="external">Netty系列之Netty线程模型</a></p>
-<p><a href="http://ifeve.com/category/netty/" target="_blank" rel="external">并发编程网有关Netty的部分</a></p>
-<p><a href="http://netty.io" target="_blank" rel="external">Netty官方网站</a></p>
-<p><a href="http://tutorials.jenkov.com/java-nio/index.html" target="_blank" rel="external">Java NIO Tutorial</a></p>
-<font color="#808080"><em>站内博客未经特殊说明皆为原创，欢迎转载，转载请注明出处、作者，谢谢！</em></font>
-        
-        </div>
-        <footer class="article-footer">
-            <div class="share-container">
-
-
-    <div class="bdsharebuttonbox">
-    <a href="#" class="bds_more" data-cmd="more">分享到：</a>
-    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间">QQ空间</a>
-    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博">新浪微博</a>
-    <a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博">腾讯微博</a>
-    <a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网">人人网</a>
-    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信">微信</a>
-</div>
-<script>
-window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMiniList":false,"bdPic":"","bdStyle":"0","bdSize":"16"},"share":{"bdSize":16}};with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)];
-</script>
-<style>
-    .bdshare_popup_box {
-        border-radius: 4px;
-        border: #e1e1e1 solid 1px;
-    }
-    .bdshare-button-style0-16 a,
-    .bdshare-button-style0-16 .bds_more {
-        padding-left: 20px;
-        margin: 6px 10px 6px 0;
-    }
-    .bdshare_dialog_list a,
-    .bdshare_popup_list a,
-    .bdshare_popup_bottom a {
-        font-family: 'Microsoft Yahei';
-    }
-    .bdshare_popup_top {
-        display: none;
-    }
-    .bdshare_popup_bottom {
-        height: auto;
-        padding: 5px;
-    }
-</style>
-
-
-</div>
-
-            
-    
-        <a href="http://www.sun4lower.cn/2017/02/22/event-threadmodel/#comments" class="article-comment-link">Comments</a>
     
 
         </footer>
@@ -911,8 +911,8 @@ window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMin
                     <li>
                         
                         <div class="item-inner">
-                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/">spark</a></p>
-                            <p class="item-title"><a href="/2017/02/22/SparkRpcBasic/" class="title">Spark RPC 到底是个什么鬼？</a></p>
+                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/event/">通信机制</a></p>
+                            <p class="item-title"><a href="/2017/02/22/event-threadmodel/" class="title">浅显易懂之线程模型的演变</a></p>
                             <p class="item-date"><time datetime="2017-02-22T09:49:24.000Z" itemprop="datePublished">2017-02-22</time></p>
                         </div>
                     </li>
@@ -920,8 +920,8 @@ window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMin
                     <li>
                         
                         <div class="item-inner">
-                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/event/">通信机制</a></p>
-                            <p class="item-title"><a href="/2017/02/22/event-threadmodel/" class="title">浅显易懂之线程模型的演变</a></p>
+                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/">spark</a></p>
+                            <p class="item-title"><a href="/2017/02/22/SparkRpcBasic/" class="title">Spark RPC 到底是个什么鬼？</a></p>
                             <p class="item-date"><time datetime="2017-02-22T09:49:24.000Z" itemprop="datePublished">2017-02-22</time></p>
                         </div>
                     </li>
