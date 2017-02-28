@@ -4,6 +4,44 @@
 
     
   <url>
+    <loc>http://www.sun4lower.cn/2017/02/28/sc-schedule/</loc>
+    <lastmod>2017-02-28T10:44:38.000Z</lastmod>
+    <data>
+        <display>
+        <title>Spark-Core源码精读(2)、Master中的schedule详解</title>
+        <pubTime>2017-02-28T08:17:02.000Z</pubTime>
+        
+        <tag>大数据</tag>
+         
+        <tag>spark</tag>
+         
+        <tag>spark-core</tag>
+         
+        <tag>master</tag>
+         
+        <tag>driver</tag>
+         
+        <tag>executor</tag>
+         
+        <tag>schedule</tag>
+         
+         
+           
+             
+              <breadCrumb title="大数据" url="http://www.sun4lower.cn/categories/bigdata/"/>
+          
+             
+              <breadCrumb title="spark" url="http://www.sun4lower.cn/categories/bigdata/spark/"/>
+          
+             
+              <breadCrumb title="spark-core" url="http://www.sun4lower.cn/categories/bigdata/spark/sparkc/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
     <loc>http://www.sun4lower.cn/2017/02/25/sc-deploy/</loc>
     <lastmod>2017-02-25T14:44:34.000Z</lastmod>
     <data>
@@ -55,17 +93,17 @@
         <title>Spark RPC 到底是个什么鬼？</title>
         <pubTime>2017-02-22T09:49:24.000Z</pubTime>
         
-        <tag>通信机制</tag>
-         
         <tag>大数据</tag>
-         
-        <tag>Netty</tag>
          
         <tag>RPC</tag>
          
         <tag>spark</tag>
          
         <tag>spark-core</tag>
+         
+        <tag>通信机制</tag>
+         
+        <tag>Netty</tag>
          
          
            

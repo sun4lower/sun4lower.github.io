@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <meta charset="utf-8">
+    
+    <title>Spark-Core源码精读(2)、Master中的schedule详解 | Sunflower</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="description" content="上一篇博客详细分析了Spark在Standalone模式下的部署过程，文中提到在Worker注册完成后需要执行一个schedule操作来分配资源，本文就将具体分析此方法具体是怎样分配资源的。
+注：本专题的文章皆使用Spark-1.6.3版本的源码为参考，如果Spark-2.1.0版本有重大改进的地方也会进行说明。
+什么时候会调用schedule？其实每当一个新的application加入活着资源发">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark-Core源码精读(2)、Master中的schedule详解">
+<meta property="og:url" content="http://www.sun4lower.cn/2017/02/28/sc-schedule/index.html">
+<meta property="og:site_name" content="Sunflower">
+<meta property="og:description" content="上一篇博客详细分析了Spark在Standalone模式下的部署过程，文中提到在Worker注册完成后需要执行一个schedule操作来分配资源，本文就将具体分析此方法具体是怎样分配资源的。
+注：本专题的文章皆使用Spark-1.6.3版本的源码为参考，如果Spark-2.1.0版本有重大改进的地方也会进行说明。
+什么时候会调用schedule？其实每当一个新的application加入活着资源发">
+<meta property="og:updated_time" content="2017-02-28T10:44:38.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Spark-Core源码精读(2)、Master中的schedule详解">
+<meta name="twitter:description" content="上一篇博客详细分析了Spark在Standalone模式下的部署过程，文中提到在Worker注册完成后需要执行一个schedule操作来分配资源，本文就将具体分析此方法具体是怎样分配资源的。
+注：本专题的文章皆使用Spark-1.6.3版本的源码为参考，如果Spark-2.1.0版本有重大改进的地方也会进行说明。
+什么时候会调用schedule？其实每当一个新的application加入活着资源发">
+    
+
+    
+
+    
+        <link rel="icon" href="/sunflower.ico" />
+    
+
+    <link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/libs/open-sans/styles.css">
+    <link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+    <link rel="stylesheet" href="/css/style.css">
+
+    <script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+    
+    
+        <link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+    
+    
+        <link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+    
+    
+    
+    
+        <script>
+var _hmt = _hmt || [];
+(function() {
+    var hm = document.createElement("script");
+    hm.src = "//hm.baidu.com/hm.js?4d423c10c1a9ce21e23383733c383235";
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(hm, s);
+})();
+</script>
+
+    
+
+
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Sunflower</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/.">Home</a>
+                
+                    <a class="main-nav-link" href="/archives">Archives</a>
+                
+                    <a class="main-nav-link" href="/categories">Categories</a>
+                
+                    <a class="main-nav-link" href="/tags">Tags</a>
+                
+                    <a class="main-nav-link" href="/about">About</a>
+                
+            </nav>
+            
+                
+                <nav id="sub-nav">
+                    <div class="profile" id="profile-nav">
+                        <a id="profile-anchor" href="javascript:;">
+                            <img class="avatar" src="/css/images/avatar.png" />
+                            <i class="fa fa-caret-down"></i>
+                        </a>
+                    </div>
+                </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Search" />
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something..." />
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Posts',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categories',
+            TAGS: 'Tags',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+<script src="/js/insight.js"></script>
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/.">Home</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">Archives</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">Categories</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">Tags</a></td>
+                
+                    <td><a class="main-nav-link" href="/about">About</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Search" />
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+                
+
+<aside id="profile">
+    <div class="inner profile-inner">
+        <div class="base-info profile-block">
+            <img id="avatar" src="/css/images/avatar.png" />
+            <h2 id="name">Sunflower</h2>
+            <h3 id="title">Studying Spark &amp; Bigdata</h3>
+            <span id="location"><i class="fa fa-map-marker"></i>ShangHai, China</span>
+            <a id="follow" target="_blank" href="https://github.com/sun4lower/">FOLLOW</a>
+        </div>
+        <div class="article-info profile-block">
+            <div class="article-info-block">
+                5
+                <span>posts</span>
+            </div>
+            <div class="article-info-block">
+                17
+                <span>tags</span>
+            </div>
+        </div>
+        
+        <div class="profile-block social-links">
+            <table>
+                <tr>
+                    
+                    
+                    <td>
+                        <a href="http://github.com/sun4lower" target="_blank" title="github" class=tooltip>
+                            <i class="fa fa-github"></i>
+                        </a>
+                    </td>
+                    
+                    <td>
+                        <a href="http://wpa.qq.com/msgrd?v=3&uin=1054844760&site=qq&menu=yes" target="_blank" title="qq" class=tooltip>
+                            <i class="fa fa-qq"></i>
+                        </a>
+                    </td>
+                    
+                    <td>
+                        <a href="http://stackoverflow.com/users/7587826/sunflower" target="_blank" title="stack-overflow" class=tooltip>
+                            <i class="fa fa-stack-overflow"></i>
+                        </a>
+                    </td>
+                    
+                    <td>
+                        <a href="mailto:sun4lower@163.com" target="_blank" title="send" class=tooltip>
+                            <i class="fa fa-send"></i>
+                        </a>
+                    </td>
+                    
+                </tr>
+            </table>
+        </div>
+        
+    </div>
+</aside>
+
+            
+            <section id="main"><article id="post-sc-schedule" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+    
+        <h1 class="article-title" itemprop="name">
+            Spark-Core源码精读(2)、Master中的schedule详解
+        </h1>
+    
+
+                
+                    <div class="article-meta">
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/2017/02/28/sc-schedule/">
+            <time datetime="2017-02-28T08:17:02.000Z" itemprop="datePublished">2017-02-28</time>
+        </a>
+    </div>
+
+
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/">spark</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/sparkc/">spark-core</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link" href="/tags/driver/">driver</a>, <a class="tag-link" href="/tags/executor/">executor</a>, <a class="tag-link" href="/tags/master/">master</a>, <a class="tag-link" href="/tags/schedule/">schedule</a>, <a class="tag-link" href="/tags/spark/">spark</a>, <a class="tag-link" href="/tags/sparkc/">spark-core</a>, <a class="tag-link" href="/tags/bigdata/">大数据</a>
+    </div>
+
+                    </div>
+                
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+            
+            <p>上一篇博客详细分析了Spark在Standalone模式下的部署过程，文中提到在Worker注册完成后需要执行一个schedule操作来分配资源，本文就将具体分析此方法具体是怎样分配资源的。</p>
+<p><strong>注：本专题的文章皆使用Spark-1.6.3版本的源码为参考，如果Spark-2.1.0版本有重大改进的地方也会进行说明。</strong></p>
+<h2 id="什么时候会调用schedule？"><a href="#什么时候会调用schedule？" class="headerlink" title="什么时候会调用schedule？"></a>什么时候会调用schedule？</h2><p>其实每当一个新的application加入活着资源发生变化的时候都会调用schudule方法对资源进行重新分配，那么它是如何分配资源的呢？我们下面进行源码级别的分析。</p>
+<h2 id="schedule"><a href="#schedule" class="headerlink" title="schedule"></a>schedule</h2><p>我们先贴出schedule的源码：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// 既然要分配资源就必须保证Master的当前状态为ALIVE</span></div><div class="line"><span class="keyword">if</span> (state != <span class="type">RecoveryState</span>.<span class="type">ALIVE</span>) &#123;</div><div class="line">  <span class="keyword">return</span></div><div class="line">&#125;</div><div class="line"><span class="comment">// Drivers take strict precedence over executors</span></div><div class="line"><span class="comment">// 注释说的很明确，先注册Drivers然后再注册executors</span></div><div class="line"><span class="comment">// 1. 首先将ALIVE状态的Workers使用shuffle的方式打乱，以免每次都将Driver分配到同一个Worker上</span></div><div class="line"><span class="keyword">val</span> shuffledAliveWorkers = <span class="type">Random</span>.shuffle(workers.toSeq.filter(_.state == <span class="type">WorkerState</span>.<span class="type">ALIVE</span>))</div><div class="line"><span class="keyword">val</span> numWorkersAlive = shuffledAliveWorkers.size</div><div class="line"><span class="keyword">var</span> curPos = <span class="number">0</span></div><div class="line"><span class="comment">// 2. 循环遍历启动Drivers</span></div><div class="line"><span class="keyword">for</span> (driver &lt;- waitingDrivers.toList) &#123; <span class="comment">// iterate over a copy of waitingDrivers</span></div><div class="line">  <span class="comment">// We assign workers to each waiting driver in a round-robin fashion. For each driver, we</span></div><div class="line">  <span class="comment">// start from the last worker that was assigned a driver, and continue onwards until we have</span></div><div class="line">  <span class="comment">// explored all alive workers.</span></div><div class="line">  <span class="keyword">var</span> launched = <span class="literal">false</span></div><div class="line">  <span class="keyword">var</span> numWorkersVisited = <span class="number">0</span></div><div class="line">  <span class="comment">// 2.1 判断是否有剩余的没有分配的Workers，并且尚未启动</span></div><div class="line">  <span class="keyword">while</span> (numWorkersVisited &lt; numWorkersAlive &amp;&amp; !launched) &#123;</div><div class="line">  	<span class="comment">// 2.2 获取一个Worker，第一个的索引为0，后面的索引根据curPos = (curPos + 1) % numWorkersAlive进行计算</span></div><div class="line">    <span class="keyword">val</span> worker = shuffledAliveWorkers(curPos)</div><div class="line">    <span class="comment">// 2.3 标记分配过的Worker加1</span></div><div class="line">    numWorkersVisited += <span class="number">1</span></div><div class="line">    <span class="comment">// 2.4 判断当前的Worker的内存和cpu是否满足Driver的需求</span></div><div class="line">    <span class="keyword">if</span> (worker.memoryFree &gt;= driver.desc.mem &amp;&amp; worker.coresFree &gt;= driver.desc.cores) &#123;</div><div class="line">      <span class="comment">// 2.5 如果满足资源的需求就在当前Worker上启动Driver</span></div><div class="line">      launchDriver(worker, driver)</div><div class="line">      <span class="comment">// 2.6 启动完成后从等待的队列中删除，并将launched标记为true</span></div><div class="line">      waitingDrivers -= driver</div><div class="line">      launched = <span class="literal">true</span></div><div class="line">    &#125;</div><div class="line">    curPos = (curPos + <span class="number">1</span>) % numWorkersAlive</div><div class="line">  &#125;</div><div class="line">&#125;</div><div class="line"><span class="comment">// 3 启动Executors</span></div><div class="line">startExecutorsOnWorkers()</div></pre></td></tr></table></figure>
+<h3 id="启动Driver"><a href="#启动Driver" class="headerlink" title="启动Driver"></a>启动Driver</h3><p>我已经在上面的源码中对分配的流程进行了详细的注释，现在我们看一下launchDriver方法：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span> <span class="function"><span class="keyword">def</span> <span class="title">launchDriver</span></span>(worker: <span class="type">WorkerInfo</span>, driver: <span class="type">DriverInfo</span>) &#123;</div><div class="line">   <span class="comment">// 1. 打日志</span></div><div class="line">	logInfo(<span class="string">"Launching driver "</span> + driver.id + <span class="string">" on worker "</span> + worker.id)</div><div class="line">	<span class="comment">// 2. 向worker中添加driver的信息，包括增加已经使用的内存和cpu信息</span></div><div class="line">	worker.addDriver(driver)</div><div class="line">	<span class="comment">// 3. 向driver中添加该worker的引用</span></div><div class="line">	driver.worker = <span class="type">Some</span>(worker)</div><div class="line">	<span class="comment">// 4. 向Worker发送LaunchDriver的消息，通知Worker启动Driver</span></div><div class="line">	worker.endpoint.send(<span class="type">LaunchDriver</span>(driver.id, driver.desc))</div><div class="line">	<span class="comment">// 5. 将driver的状态变成RUNNING</span></div><div class="line">	driver.state = <span class="type">DriverState</span>.<span class="type">RUNNING</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>接下来我们看一下对应的Worker在接收到LaunchDriver消息后是怎么处理的：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">case</span> <span class="type">LaunchDriver</span>(driverId, driverDesc) =&gt; &#123;</div><div class="line">  <span class="comment">// 1. 打日志</span></div><div class="line">  logInfo(<span class="string">s"Asked to launch driver <span class="subst">$driverId</span>"</span>)</div><div class="line">  <span class="comment">// 2. 实例化DriverRunner</span></div><div class="line">  <span class="keyword">val</span> driver = <span class="keyword">new</span> <span class="type">DriverRunner</span>(</div><div class="line">    conf,</div><div class="line">    driverId,</div><div class="line">    workDir,</div><div class="line">    sparkHome,</div><div class="line">    driverDesc.copy(command = <span class="type">Worker</span>.maybeUpdateSSLSettings(driverDesc.command, conf)),</div><div class="line">    self,</div><div class="line">    workerUri,</div><div class="line">    securityMgr)</div><div class="line">  <span class="comment">// 3. 实例化完成后向drivers中添加该driver的记录</span></div><div class="line">  drivers(driverId) = driver</div><div class="line">  <span class="comment">// 4. 启动driver</span></div><div class="line">  driver.start()</div><div class="line"></div><div class="line">  <span class="comment">// 5. 启动完成后记录资源的变化</span></div><div class="line">  coresUsed += driverDesc.cores</div><div class="line">  memoryUsed += driverDesc.mem</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>继续跟踪driver.start()：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// 英文注释说的很清楚：启动一个线程来运行和管理driver</span></div><div class="line"><span class="comment">/** Starts a thread to run and manage the driver. */</span></div><div class="line"><span class="keyword">private</span>[worker] <span class="function"><span class="keyword">def</span> <span class="title">start</span></span>() = &#123;</div><div class="line">	<span class="keyword">new</span> <span class="type">Thread</span>(<span class="string">"DriverRunner for "</span> + driverId) &#123;</div><div class="line">	  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">run</span></span>() &#123;</div><div class="line">	    <span class="keyword">try</span> &#123;</div><div class="line">	      <span class="comment">// 创建driver的工作目录</span></div><div class="line">	      <span class="keyword">val</span> driverDir = createWorkingDirectory()</div><div class="line">	      <span class="comment">// 下载用户的Jar文件到driver的工作目录并返回路径名称</span></div><div class="line">	      <span class="keyword">val</span> localJarFilename = downloadUserJar(driverDir)</div><div class="line">	</div><div class="line">	      <span class="function"><span class="keyword">def</span> <span class="title">substituteVariables</span></span>(argument: <span class="type">String</span>): <span class="type">String</span> = argument <span class="keyword">match</span> &#123;</div><div class="line">	        <span class="keyword">case</span> <span class="string">"&#123;&#123;WORKER_URL&#125;&#125;"</span> =&gt; workerUrl</div><div class="line">	        <span class="keyword">case</span> <span class="string">"&#123;&#123;USER_JAR&#125;&#125;"</span> =&gt; localJarFilename</div><div class="line">	        <span class="keyword">case</span> other =&gt; other</div><div class="line">	      &#125;</div><div class="line">	</div><div class="line">	      <span class="comment">// <span class="doctag">TODO:</span> If we add ability to submit multiple jars they should also be added here</span></div><div class="line">	      <span class="keyword">val</span> builder = <span class="type">CommandUtils</span>.buildProcessBuilder(driverDesc.command, securityManager,</div><div class="line">	        driverDesc.mem, sparkHome.getAbsolutePath, substituteVariables)</div><div class="line">	      <span class="comment">// 具体的启动Driver的操作，这里不再详细分析</span></div><div class="line">	      launchDriver(builder, driverDir, driverDesc.supervise)</div><div class="line">	    &#125;</div><div class="line">	    <span class="keyword">catch</span> &#123;</div><div class="line">	      <span class="keyword">case</span> e: <span class="type">Exception</span> =&gt; finalException = <span class="type">Some</span>(e)</div><div class="line">	    &#125;</div><div class="line">	</div><div class="line">	    <span class="keyword">val</span> state =</div><div class="line">	      <span class="keyword">if</span> (killed) &#123;</div><div class="line">	        <span class="type">DriverState</span>.<span class="type">KILLED</span></div><div class="line">	      &#125; <span class="keyword">else</span> <span class="keyword">if</span> (finalException.isDefined) &#123;</div><div class="line">	        <span class="type">DriverState</span>.<span class="type">ERROR</span></div><div class="line">	      &#125; <span class="keyword">else</span> &#123;</div><div class="line">	        finalExitCode <span class="keyword">match</span> &#123;</div><div class="line">	          <span class="keyword">case</span> <span class="type">Some</span>(<span class="number">0</span>) =&gt; <span class="type">DriverState</span>.<span class="type">FINISHED</span></div><div class="line">	          <span class="keyword">case</span> _ =&gt; <span class="type">DriverState</span>.<span class="type">FAILED</span></div><div class="line">	        &#125;</div><div class="line">	      &#125;</div><div class="line">	</div><div class="line">	    finalState = <span class="type">Some</span>(state)</div><div class="line">	</div><div class="line">	    worker.send(<span class="type">DriverStateChanged</span>(driverId, state, finalException))</div><div class="line">	  &#125;</div><div class="line">	&#125;.start()</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>如果启动成功最后要向worker发送一条DriverStateChanged的消息，而Worker在接收到该消息后会调用handleDriverStateChanged方法进行一系列处理，具体的处理细节就不再说明，主要的就是向Master发送一条driverStateChanged的消息，Master在接收到该消息后移除Driver的信息：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">ase <span class="type">DriverStateChanged</span>(driverId, state, exception) =&gt; &#123;</div><div class="line">  state <span class="keyword">match</span> &#123;</div><div class="line">    <span class="keyword">case</span> <span class="type">DriverState</span>.<span class="type">ERROR</span> | <span class="type">DriverState</span>.<span class="type">FINISHED</span> | <span class="type">DriverState</span>.<span class="type">KILLED</span> | <span class="type">DriverState</span>.<span class="type">FAILED</span> =&gt;</div><div class="line">      removeDriver(driverId, state, exception)</div><div class="line">    <span class="keyword">case</span> _ =&gt;</div><div class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="type">Exception</span>(<span class="string">s"Received unexpected state update for driver <span class="subst">$driverId</span>: <span class="subst">$state</span>"</span>)</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>至此向Driver分配资源并启动Driver的过程结束，下面我们看一下启动Executors即执行startExecutorsOnWorkers()的流程。</p>
+<h3 id="启动Executors"><a href="#启动Executors" class="headerlink" title="启动Executors"></a>启动Executors</h3><p>startExecutorsOnWorkers():</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line">   * Schedule and launch executors on workers</div><div class="line">   */</div><div class="line">  <span class="keyword">private</span> <span class="function"><span class="keyword">def</span> <span class="title">startExecutorsOnWorkers</span></span>(): <span class="type">Unit</span> = &#123;</div><div class="line">  	 <span class="comment">// 采用的是先进先出的原则</span></div><div class="line">    <span class="comment">// Right now this is a very simple FIFO scheduler. We keep trying to fit in the first app</span></div><div class="line">    <span class="comment">// in the queue, then the second app, etc.</span></div><div class="line">    <span class="keyword">for</span> (app &lt;- waitingApps <span class="keyword">if</span> app.coresLeft &gt; <span class="number">0</span>) &#123;</div><div class="line">      <span class="keyword">val</span> coresPerExecutor: <span class="type">Option</span>[<span class="type">Int</span>] = app.desc.coresPerExecutor</div><div class="line">      <span class="comment">// Filter out workers that don't have enough resources to launch an executor</span></div><div class="line">      <span class="comment">// 过滤出ALIVE状态并且资源满足要求的workers，同时按照空闲cpu cores的个数倒序排列</span></div><div class="line">      <span class="keyword">val</span> usableWorkers = workers.toArray.filter(_.state == <span class="type">WorkerState</span>.<span class="type">ALIVE</span>)</div><div class="line">        .filter(worker =&gt; worker.memoryFree &gt;= app.desc.memoryPerExecutorMB &amp;&amp;</div><div class="line">          worker.coresFree &gt;= coresPerExecutor.getOrElse(<span class="number">1</span>))</div><div class="line">        .sortBy(_.coresFree).reverse</div><div class="line">        </div><div class="line">      <span class="comment">// 决定在每个worker上面分配多少个cpu cores</span></div><div class="line">      <span class="keyword">val</span> assignedCores = scheduleExecutorsOnWorkers(app, usableWorkers, spreadOutApps)</div><div class="line"></div><div class="line">      <span class="comment">// 然后开始进行分配</span></div><div class="line">      <span class="comment">// Now that we've decided how many cores to allocate on each worker, let's allocate them</span></div><div class="line">      <span class="keyword">for</span> (pos &lt;- <span class="number">0</span> until usableWorkers.length <span class="keyword">if</span> assignedCores(pos) &gt; <span class="number">0</span>) &#123;</div><div class="line">        allocateWorkerResourceToExecutors(</div><div class="line">          app, assignedCores(pos), coresPerExecutor, usableWorkers(pos))</div><div class="line">      &#125;</div><div class="line">    &#125;</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
+<p>我们首先看一下是如何决定在每个worker上分配多少个cores的，这里我们只列出scheduleExecutorsOnWorkers方法的英文注释，并进行说明，具体的操作大家可以去看源码：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line">   * Schedule executors to be launched on the workers.</div><div class="line">   * Returns an array containing number of cores assigned to each worker.</div><div class="line">   *</div><div class="line">   * There are two modes of launching executors. The first attempts to spread out an application's</div><div class="line">   * executors on as many workers as possible, while the second does the opposite (i.e. launch them</div><div class="line">   * on as few workers as possible). The former is usually better for data locality purposes and is</div><div class="line">   * the default.</div><div class="line">   *</div><div class="line">   * The number of cores assigned to each executor is configurable. When this is explicitly set,</div><div class="line">   * multiple executors from the same application may be launched on the same worker if the worker</div><div class="line">   * has enough cores and memory. Otherwise, each executor grabs all the cores available on the</div><div class="line">   * worker by default, in which case only one executor may be launched on each worker.</div><div class="line">   *</div><div class="line">   * It is important to allocate coresPerExecutor on each worker at a time (instead of 1 core</div><div class="line">   * at a time). Consider the following example: cluster has 4 workers with 16 cores each.</div><div class="line">   * User requests 3 executors (spark.cores.max = 48, spark.executor.cores = 16). If 1 core is</div><div class="line">   * allocated at a time, 12 cores from each worker would be assigned to each executor.</div><div class="line">   * Since 12 &lt; 16, no executors would launch [SPARK-8881].</div><div class="line">   */</div></pre></td></tr></table></figure>
+<p>大致意思是说有两种分配模型，第一种是将executors分配到尽可能多的workers上；第二种与第一种相反。默认使用的是第一种模型，这种模型更加符合数据的本地性原则，为每个Executor分配的cores的个数是可以进行配置的（spark-submit 或者 spark-env.sh），如果设置了，多个executors可能会被分配在一个worker上（前提是该worker拥有足够的cores和memory），否则每个executor会充分利用worker上的cores，这种情况下一个executor会被分配在一个worker上。具体在集群上分配cores的时候会尽可能的满足我们的要求，如果需要的cores的个数大于workers中空闲的cores的个数，那么就先分配空闲的cores，尽可能的去满足要求。</p>
+<p>接下来就是具体为executors分配计算资源并启动executors的过程：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span> <span class="function"><span class="keyword">def</span> <span class="title">allocateWorkerResourceToExecutors</span></span>(</div><div class="line">      app: <span class="type">ApplicationInfo</span>,</div><div class="line">      assignedCores: <span class="type">Int</span>,</div><div class="line">      coresPerExecutor: <span class="type">Option</span>[<span class="type">Int</span>],</div><div class="line">      worker: <span class="type">WorkerInfo</span>): <span class="type">Unit</span> = &#123;</div><div class="line">    <span class="comment">// If the number of cores per executor is specified, we divide the cores assigned</span></div><div class="line">    <span class="comment">// to this worker evenly among the executors with no remainder.</span></div><div class="line">    <span class="comment">// Otherwise, we launch a single executor that grabs all the assignedCores on this worker.</span></div><div class="line">    <span class="keyword">val</span> numExecutors = coresPerExecutor.map &#123; assignedCores / _ &#125;.getOrElse(<span class="number">1</span>)</div><div class="line">    <span class="keyword">val</span> coresToAssign = coresPerExecutor.getOrElse(assignedCores)</div><div class="line">    <span class="keyword">for</span> (i &lt;- <span class="number">1</span> to numExecutors) &#123;</div><div class="line">      <span class="comment">// 向application中添加executor的信息</span></div><div class="line">      <span class="keyword">val</span> exec = app.addExecutor(worker, coresToAssign)</div><div class="line">      <span class="comment">// 启动executors</span></div><div class="line">      launchExecutor(worker, exec)</div><div class="line">      app.state = <span class="type">ApplicationState</span>.<span class="type">RUNNING</span></div><div class="line">    &#125;</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
+<p>启动executors：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span> <span class="function"><span class="keyword">def</span> <span class="title">launchExecutor</span></span>(worker: <span class="type">WorkerInfo</span>, exec: <span class="type">ExecutorDesc</span>): <span class="type">Unit</span> = &#123;</div><div class="line">    logInfo(<span class="string">"Launching executor "</span> + exec.fullId + <span class="string">" on worker "</span> + worker.id)</div><div class="line">    worker.addExecutor(exec)</div><div class="line">    <span class="comment">// 向worker发消息启动executor</span></div><div class="line">    worker.endpoint.send(<span class="type">LaunchExecutor</span>(masterUrl,</div><div class="line">      exec.application.id, exec.id, exec.application.desc, exec.cores, exec.memory))</div><div class="line">    <span class="comment">// 然后向driver发送executors的信息</span></div><div class="line">    exec.application.driver.send(</div><div class="line">      <span class="type">ExecutorAdded</span>(exec.id, worker.id, worker.hostPort, exec.cores, exec.memory))</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
+<p>worker在接收到启动executor的消息后执行具体的启动操作，并向Master汇报。</p>
+<p>然后也要向driver发送executors的资源信息，driver收到信息后执行application，至此分配并启动executors的大致流程也就执行完毕。</p>
+<p>本文只是大致的分析了Master在执行schedule的时候具体为Driver、Executors分配资源并启动它们的流程，以后我们还会分析整个application的运行流程，那时我们会具体进行分析。</p>
+<p>本文参考和拓展阅读：</p>
+<p><a href="https://github.com/apache/spark/tree/branch-1.6" target="_blank" rel="external">Spark-1.6.3源码</a></p>
+<p><a href="https://github.com/apache/spark/tree/branch-2.1" target="_blank" rel="external">Spark-2.1.0源码</a></p>
+<font color="#808080"><em>站内博客未经特殊说明皆为原创，欢迎转载，转载请注明出处、作者，谢谢！</em></font>
+        
+        </div>
+        <footer class="article-footer">
+            <div class="share-container">
+
+
+    <div class="bdsharebuttonbox">
+    <a href="#" class="bds_more" data-cmd="more">分享到：</a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间">QQ空间</a>
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博">新浪微博</a>
+    <a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博">腾讯微博</a>
+    <a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网">人人网</a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信">微信</a>
+</div>
+<script>
+window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMiniList":false,"bdPic":"","bdStyle":"0","bdSize":"16"},"share":{"bdSize":16}};with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+<style>
+    .bdshare_popup_box {
+        border-radius: 4px;
+        border: #e1e1e1 solid 1px;
+    }
+    .bdshare-button-style0-16 a,
+    .bdshare-button-style0-16 .bds_more {
+        padding-left: 20px;
+        margin: 6px 10px 6px 0;
+    }
+    .bdshare_dialog_list a,
+    .bdshare_popup_list a,
+    .bdshare_popup_bottom a {
+        font-family: 'Microsoft Yahei';
+    }
+    .bdshare_popup_top {
+        display: none;
+    }
+    .bdshare_popup_bottom {
+        height: auto;
+        padding: 5px;
+    }
+</style>
+
+
+</div>
+
+            
+    
+        <a href="http://www.sun4lower.cn/2017/02/28/sc-schedule/#comments" class="article-comment-link">Comments</a>
+    
+
+        </footer>
+    </div>
+    
+        
+<nav id="article-nav">
+    
+    
+        <a href="/2017/02/25/sc-deploy/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Older</strong>
+            <div class="article-nav-title">Spark-Core源码精读(1)、Spark Deployment &amp; start-all.sh on Standalone mode</div>
+        </a>
+    
+</nav>
+
+
+    
+</article>
+
+
+    
+    <section id="comments">
+    
+        
+    <div id="uyan_frame"></div>
+
+    
+    </section>
+
+</section>
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap">
+        <h3 class="widget-title">recent</h3>
+        <div class="widget">
+            <ul id="recent-post" class="no-thumbnail">
+                
+                    <li>
+                        
+                        <div class="item-inner">
+                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/">spark</a></p>
+                            <p class="item-title"><a href="/2017/02/28/sc-schedule/" class="title">Spark-Core源码精读(2)、Master中的schedule详解</a></p>
+                            <p class="item-date"><time datetime="2017-02-28T08:17:02.000Z" itemprop="datePublished">2017-02-28</time></p>
+                        </div>
+                    </li>
+                
+                    <li>
+                        
+                        <div class="item-inner">
+                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/">spark</a></p>
+                            <p class="item-title"><a href="/2017/02/25/sc-deploy/" class="title">Spark-Core源码精读(1)、Spark Deployment &amp; start-all.sh on Standalone mode</a></p>
+                            <p class="item-date"><time datetime="2017-02-25T05:58:04.000Z" itemprop="datePublished">2017-02-25</time></p>
+                        </div>
+                    </li>
+                
+                    <li>
+                        
+                        <div class="item-inner">
+                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/event/">通信机制</a></p>
+                            <p class="item-title"><a href="/2017/02/22/event-threadmodel/" class="title">浅显易懂之线程模型的演变</a></p>
+                            <p class="item-date"><time datetime="2017-02-22T09:49:24.000Z" itemprop="datePublished">2017-02-22</time></p>
+                        </div>
+                    </li>
+                
+                    <li>
+                        
+                        <div class="item-inner">
+                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/">spark</a></p>
+                            <p class="item-title"><a href="/2017/02/22/SparkRpcBasic/" class="title">Spark RPC 到底是个什么鬼？</a></p>
+                            <p class="item-date"><time datetime="2017-02-22T09:49:24.000Z" itemprop="datePublished">2017-02-22</time></p>
+                        </div>
+                    </li>
+                
+                    <li>
+                        
+                        <div class="item-inner">
+                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/">spark</a></p>
+                            <p class="item-title"><a href="/2017/02/19/hello-world/" class="title">Hello World</a></p>
+                            <p class="item-date"><time datetime="2017-02-19T04:52:30.000Z" itemprop="datePublished">2017-02-19</time></p>
+                        </div>
+                    </li>
+                
+            </ul>
+        </div>
+    </div>
+
+    
+        
+    <div class="widget-wrap">
+        <h3 class="widget-title">categories</h3>
+        <div class="widget">
+            <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/bigdata/">大数据</a><span class="category-list-count">5</span><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/bigdata/spark/">spark</a><span class="category-list-count">4</span><ul class="category-list-child"><li class="category-list-item"><a class="category-list-link" href="/categories/bigdata/spark/sparkc/">spark-core</a><span class="category-list-count">4</span></li></ul></li><li class="category-list-item"><a class="category-list-link" href="/categories/bigdata/event/">通信机制</a><span class="category-list-count">1</span></li></ul></li></ul>
+        </div>
+    </div>
+
+    
+        
+    <div class="widget-wrap">
+        <h3 class="widget-title">archives</h3>
+        <div class="widget">
+            <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/02/">February 2017</a><span class="archive-list-count">5</span></li></ul>
+        </div>
+    </div>
+
+    
+        
+    <div class="widget-wrap">
+        <h3 class="widget-title">tags</h3>
+        <div class="widget">
+            <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/netty/">Netty</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/prc/">RPC</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/deployment/">deployment</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/driver/">driver</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/executor/">executor</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/master/">master</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/mesos/">mesos</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/schedule/">schedule</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/spark/">spark</a><span class="tag-list-count">3</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/sparkc/">spark-core</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/standalone/">standalone</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/worker/">worker</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/yarn/">yarn</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/多线程/">多线程</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/bigdata/">大数据</a><span class="tag-list-count">4</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/perf/">性能调优</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/event/">通信机制</a><span class="tag-list-count">2</span></li></ul>
+        </div>
+    </div>
+
+    
+        
+<script type="text/javascript" charset="utf-8" src="/js/tagcloud.js"></script>
+<script type="text/javascript" charset="utf-8" src="/js/tagcanvas.js"></script>
+    <div class="widget-wrap">
+        <h3 class="widget-title">tag cloud</h3>
+        <div id="myCanvasContainer" class="widget tagcloud">
+            <canvas width="250" height="250" id="resCanvas" style="width=100%">
+                <a href="/tags/netty/" style="font-size: 13.33px;">Netty</a> <a href="/tags/prc/" style="font-size: 13.33px;">RPC</a> <a href="/tags/deployment/" style="font-size: 10px;">deployment</a> <a href="/tags/driver/" style="font-size: 10px;">driver</a> <a href="/tags/executor/" style="font-size: 10px;">executor</a> <a href="/tags/master/" style="font-size: 13.33px;">master</a> <a href="/tags/mesos/" style="font-size: 10px;">mesos</a> <a href="/tags/schedule/" style="font-size: 10px;">schedule</a> <a href="/tags/spark/" style="font-size: 16.67px;">spark</a> <a href="/tags/sparkc/" style="font-size: 20px;">spark-core</a> <a href="/tags/standalone/" style="font-size: 10px;">standalone</a> <a href="/tags/worker/" style="font-size: 10px;">worker</a> <a href="/tags/yarn/" style="font-size: 10px;">yarn</a> <a href="/tags/多线程/" style="font-size: 10px;">多线程</a> <a href="/tags/bigdata/" style="font-size: 20px;">大数据</a> <a href="/tags/perf/" style="font-size: 10px;">性能调优</a> <a href="/tags/event/" style="font-size: 13.33px;">通信机制</a>
+            </canvas>
+        </div>
+    </div>
+
+    
+        
+    <div class="widget-wrap widget-list">
+        <h3 class="widget-title">links</h3>
+        <div class="widget">
+            <ul>
+                
+                    <li>
+                        <a href="http://spark.apache.org">Spark</a>
+                    </li>
+                
+            </ul>
+        </div>
+    </div>
+
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+	    本站总访问量 <span id="busuanzi_value_site_pv"></span> 次, 访客数 <span id="busuanzi_value_site_uv"></span> 人次, 本文总阅读量 <span id="busuanzi_value_page_pv"></span> 次<br>
+            &copy; 2017 Sunflower<br>
+            Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>. Theme by <a href="http://github.com/ppoffice">PPOffice</a>
+        </div>
+    </div>
+</footer>
+<script async src="//dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+        
+    
+    <script type="text/javascript" src="http://v2.uyan.cc/code/uyan.js?uid=2125727"></script>
+
+
+
+    
+        <script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-share.min.js"></script>
+        <script src="/libs/lightgallery/js/lg-video.min.js"></script>
+    
+    
+        <script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+<script src="/js/main.js"></script>
+
+    </div>
+</body>
+</html>
