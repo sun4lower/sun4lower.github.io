@@ -15,14 +15,14 @@
 <meta property="og:description" content="上一篇博客详细分析了Spark在Standalone模式下的部署过程，文中提到在Worker注册完成后需要执行一个schedule操作来分配资源，本文就将具体分析此方法具体是怎样分配资源的。
 注：本专题的文章皆使用Spark-1.6.3版本的源码为参考，如果Spark-2.1.0版本有重大改进的地方也会进行说明。
 什么时候会调用schedule？其实每当一个新的application加入活着资源发">
-<meta property="og:image" content="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fd6hauafcvj30w30con6l.jpg">
-<meta property="og:updated_time" content="2017-02-28T12:58:08.000Z">
+<meta property="og:image" content="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fd6iau7to2j30rs0azt9i.jpg">
+<meta property="og:updated_time" content="2017-02-28T13:32:34.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Spark-Core源码精读(2)、Master中的schedule详解">
 <meta name="twitter:description" content="上一篇博客详细分析了Spark在Standalone模式下的部署过程，文中提到在Worker注册完成后需要执行一个schedule操作来分配资源，本文就将具体分析此方法具体是怎样分配资源的。
 注：本专题的文章皆使用Spark-1.6.3版本的源码为参考，如果Spark-2.1.0版本有重大改进的地方也会进行说明。
 什么时候会调用schedule？其实每当一个新的application加入活着资源发">
-<meta name="twitter:image" content="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fd6hauafcvj30w30con6l.jpg">
+<meta name="twitter:image" content="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fd6iau7to2j30rs0azt9i.jpg">
     
 
     
@@ -291,7 +291,7 @@ var _hmt = _hmt || [];
 <p>worker在接收到启动executor的消息后执行具体的启动操作，并向Master汇报。</p>
 <p>然后也要向driver发送executors的资源信息，driver收到信息后执行application，至此分配并启动executors的大致流程也就执行完毕。</p>
 <p>最后用一张图总结一下启动Driver和Worker的简易流程：</p>
-<p><img src="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fd6hauafcvj30w30con6l.jpg" alt=""></p>
+<p><img src="http://wx3.sinaimg.cn/mw690/006y2nc1ly1fd6iau7to2j30rs0azt9i.jpg" alt=""></p>
 <p>本文只是大致的分析了Master在执行schedule的时候具体为Driver、Executors分配资源并启动它们的流程，以后我们还会分析整个application的运行流程，那时我们会具体进行分析。</p>
 <p>本文参考和拓展阅读：</p>
 <p><a href="https://github.com/apache/spark/tree/branch-1.6" target="_blank" rel="external">Spark-1.6.3源码</a></p>
@@ -405,8 +405,8 @@ window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMin
                     <li>
                         
                         <div class="item-inner">
-                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/event/">通信机制</a></p>
-                            <p class="item-title"><a href="/2017/02/22/event-threadmodel/" class="title">浅显易懂之线程模型的演变</a></p>
+                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/">spark</a></p>
+                            <p class="item-title"><a href="/2017/02/22/SparkRpcBasic/" class="title">Spark RPC 到底是个什么鬼？</a></p>
                             <p class="item-date"><time datetime="2017-02-22T09:49:24.000Z" itemprop="datePublished">2017-02-22</time></p>
                         </div>
                     </li>
@@ -414,8 +414,8 @@ window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMin
                     <li>
                         
                         <div class="item-inner">
-                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/spark/">spark</a></p>
-                            <p class="item-title"><a href="/2017/02/22/SparkRpcBasic/" class="title">Spark RPC 到底是个什么鬼？</a></p>
+                            <p class="item-category"><a class="article-category-link" href="/categories/bigdata/">大数据</a><i class="fa fa-angle-right"></i><a class="article-category-link" href="/categories/bigdata/event/">通信机制</a></p>
+                            <p class="item-title"><a href="/2017/02/22/event-threadmodel/" class="title">浅显易懂之线程模型的演变</a></p>
                             <p class="item-date"><time datetime="2017-02-22T09:49:24.000Z" itemprop="datePublished">2017-02-22</time></p>
                         </div>
                     </li>
