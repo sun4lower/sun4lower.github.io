@@ -15,12 +15,14 @@
 <meta property="og:description" content="上一篇博客详细分析了Spark在Standalone模式下的部署过程，文中提到在Worker注册完成后需要执行一个schedule操作来分配资源，本文就将具体分析此方法具体是怎样分配资源的。
 注：本专题的文章皆使用Spark-1.6.3版本的源码为参考，如果Spark-2.1.0版本有重大改进的地方也会进行说明。
 什么时候会调用schedule？其实每当一个新的application加入活着资源发">
-<meta property="og:updated_time" content="2017-02-28T12:51:35.000Z">
+<meta property="og:image" content="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fd6hauafcvj30w30con6l.jpg">
+<meta property="og:updated_time" content="2017-02-28T12:58:08.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Spark-Core源码精读(2)、Master中的schedule详解">
 <meta name="twitter:description" content="上一篇博客详细分析了Spark在Standalone模式下的部署过程，文中提到在Worker注册完成后需要执行一个schedule操作来分配资源，本文就将具体分析此方法具体是怎样分配资源的。
 注：本专题的文章皆使用Spark-1.6.3版本的源码为参考，如果Spark-2.1.0版本有重大改进的地方也会进行说明。
 什么时候会调用schedule？其实每当一个新的application加入活着资源发">
+<meta name="twitter:image" content="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fd6hauafcvj30w30con6l.jpg">
     
 
     
@@ -288,6 +290,8 @@ var _hmt = _hmt || [];
 <figure class="highlight scala"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span> <span class="function"><span class="keyword">def</span> <span class="title">launchExecutor</span></span>(worker: <span class="type">WorkerInfo</span>, exec: <span class="type">ExecutorDesc</span>): <span class="type">Unit</span> = &#123;</div><div class="line">    logInfo(<span class="string">"Launching executor "</span> + exec.fullId + <span class="string">" on worker "</span> + worker.id)</div><div class="line">    worker.addExecutor(exec)</div><div class="line">    <span class="comment">// 向worker发消息启动executor</span></div><div class="line">    worker.endpoint.send(<span class="type">LaunchExecutor</span>(masterUrl,</div><div class="line">      exec.application.id, exec.id, exec.application.desc, exec.cores, exec.memory))</div><div class="line">    <span class="comment">// 然后向driver发送executors的信息</span></div><div class="line">    exec.application.driver.send(</div><div class="line">      <span class="type">ExecutorAdded</span>(exec.id, worker.id, worker.hostPort, exec.cores, exec.memory))</div><div class="line">  &#125;</div></pre></td></tr></table></figure>
 <p>worker在接收到启动executor的消息后执行具体的启动操作，并向Master汇报。</p>
 <p>然后也要向driver发送executors的资源信息，driver收到信息后执行application，至此分配并启动executors的大致流程也就执行完毕。</p>
+<p>最后用一张图总结一下启动Driver和Worker的简易流程：</p>
+<p><img src="http://wx1.sinaimg.cn/mw690/006y2nc1ly1fd6hauafcvj30w30con6l.jpg" alt=""></p>
 <p>本文只是大致的分析了Master在执行schedule的时候具体为Driver、Executors分配资源并启动它们的流程，以后我们还会分析整个application的运行流程，那时我们会具体进行分析。</p>
 <p>本文参考和拓展阅读：</p>
 <p><a href="https://github.com/apache/spark/tree/branch-1.6" target="_blank" rel="external">Spark-1.6.3源码</a></p>
