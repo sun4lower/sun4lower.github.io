@@ -4,6 +4,48 @@
 
     
   <url>
+    <loc>http://www.sun4lower.cn/2017/03/02/sc-sparkshell/</loc>
+    <lastmod>2017-03-02T05:33:14.000Z</lastmod>
+    <data>
+        <display>
+        <title>Spark-Core源码精读(2)、spark-shell(spark-submit)流程详解</title>
+        <pubTime>2017-03-02T05:28:17.000Z</pubTime>
+        
+        <tag>大数据</tag>
+         
+        <tag>spark</tag>
+         
+        <tag>spark-core</tag>
+         
+        <tag>spark-shell</tag>
+         
+        <tag>spark-submit</tag>
+         
+        <tag>SparkContext</tag>
+         
+        <tag>SqlContext</tag>
+         
+        <tag>spark-class</tag>
+         
+        <tag>REPL</tag>
+         
+         
+           
+             
+              <breadCrumb title="大数据" url="http://www.sun4lower.cn/categories/bigdata/"/>
+          
+             
+              <breadCrumb title="spark" url="http://www.sun4lower.cn/categories/bigdata/spark/"/>
+          
+             
+              <breadCrumb title="spark-core" url="http://www.sun4lower.cn/categories/bigdata/spark/sparkc/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
     <loc>http://www.sun4lower.cn/2017/02/28/sc-schedule/</loc>
     <lastmod>2017-02-28T13:34:25.000Z</lastmod>
     <data>
@@ -95,9 +137,9 @@
         
         <tag>通信机制</tag>
          
-        <tag>Netty</tag>
-         
         <tag>大数据</tag>
+         
+        <tag>Netty</tag>
          
         <tag>RPC</tag>
          
